@@ -1,17 +1,22 @@
+// frontend/src/components/Dashboard.js (updated to include CreateUserForm)
+
 import React from 'react';
 import { useSelector } from 'react-redux';
 import HierarchyTree from './HierarchyTree';
 import Ledger from './Ledger';
 import BetForm from './BetForm';
-import { Box, Typography, Paper, Grid, Tabs, Tab, List, ListItem, ListItemText } from '@mui/material';
+import CreateUserForm from './CreateUserForm';
+import { Box, Typography, Paper, Grid } from '@mui/material';
 
 const Dashboard = ({ games }) => {
   const user = useSelector((state) => state.user.user);
 
   if (!user) return <Typography>Loading...</Typography>;
 
-  const upcoming = games.filter(g => g.status === 'upcoming');
-  const ongoing = games.filter(g => g.status === 'live');
+  let allowedRole = null;
+  if (user.role === 'super_admin') allowedRole = 'master_admin';
+  else if (user.role === 'master_admin') allowedRole = 'admin';
+  else if (user.role === 'admin') allowedRole = 'client';
 
   return (
     <Box className="dashboard-container" p={3}>
@@ -36,6 +41,13 @@ const Dashboard = ({ games }) => {
             <Ledger />
           </Paper>
         </Grid>
+        {allowedRole && (
+          <Grid item xs={12} md={6}>
+            <Paper elevation={2} sx={{ p: 2 }}>
+              <CreateUserForm allowedRole={allowedRole} />
+            </Paper>
+          </Grid>
+        )}
         {user.role === 'client' && (
           <Grid item xs={12}>
             <Paper elevation={2} sx={{ p: 2 }}>
@@ -44,46 +56,7 @@ const Dashboard = ({ games }) => {
             </Paper>
           </Grid>
         )}
-        <Grid item xs={12}>
-          <Paper elevation={2} sx={{ p: 2 }}>
-            <Typography variant="h6">Matches</Typography>
-            <Tabs value={0} centered>
-              <Tab label="Upcoming" />
-              <Tab label="Ongoing" />
-            </Tabs>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1">Upcoming Matches</Typography>
-              <List>
-                {upcoming.length === 0 ? (
-                  <ListItem><ListItemText primary="No upcoming matches" /></ListItem>
-                ) : (
-                  upcoming.map((g) => (
-                    <ListItem key={g.id}>
-                      <ListItemText primary={g.name} secondary={new Date(g.metadata.date || g.start_time).toLocaleString()} />
-                    </ListItem>
-                  ))
-                )}
-              </List>
-            </Box>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1">Ongoing Matches (Live Scores)</Typography>
-              <List>
-                {ongoing.length === 0 ? (
-                  <ListItem><ListItemText primary="No ongoing matches" /></ListItem>
-                ) : (
-                  ongoing.map((g) => (
-                    <ListItem key={g.id}>
-                      <ListItemText 
-                        primary={g.name} 
-                        secondary={`Score: ${g.metadata.score || 'Live - No score available yet'} | Status: ${g.status}`} 
-                      />
-                    </ListItem>
-                  ))
-                )}
-              </List>
-            </Box>
-          </Paper>
-        </Grid>
+        {/* Matches panel and other sections */}
       </Grid>
     </Box>
   );

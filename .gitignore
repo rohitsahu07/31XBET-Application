@@ -11,9 +11,6 @@ env.bak/
 venv.bak/
 *.env
 db.sqlite3
-media/
-staticfiles/
-migrations/
 
 # React/Node
 node_modules/
