@@ -1,3 +1,5 @@
+// frontend/src/pages/DashboardPage.js (updated to fetch games on load)
+
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import Dashboard from '../components/Dashboard';
@@ -9,12 +11,10 @@ const DashboardPage = () => {
     const fetchGames = async () => {
       const token = localStorage.getItem('access_token');
       try {
-        const res = await axios.get('/api/bets/games/', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await axios.get('/api/bets/games/', { headers: { Authorization: `Bearer ${token}` } });
         setGames(res.data);
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching games', err);
       }
     };
     fetchGames();
