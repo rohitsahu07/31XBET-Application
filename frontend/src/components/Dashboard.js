@@ -2,17 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import HierarchyTree from './HierarchyTree';
 import Ledger from './Ledger';
 import BetForm from './BetForm';
 import CreateUserForm from './CreateUserForm';
-import { Box, Typography, Paper, Grid, Tabs, Tab, List, ListItem, ListItemText } from '@mui/material';
+import { Box, Typography, Paper, Grid, Tabs, Tab, List, ListItem, ListItemText, Button } from '@mui/material';
 
 const Dashboard = ({ games }) => {
   const user = useSelector((state) => state.user.user);
   const [matches, setMatches] = useState([]);
   const [tabValue, setTabValue] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchMatches = async () => {
@@ -28,6 +30,21 @@ const Dashboard = ({ games }) => {
     };
     fetchMatches();
   }, []);
+
+  const handleLogout = async () => {
+    const token = localStorage.getItem('refresh_token');  // Assuming refresh_token is stored
+    try {
+      await axios.post('/api/users/logout/', { refresh: token }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
+      });
+      localStorage.clear();
+      navigate('/');
+    } catch (err) {
+      console.error('Logout failed', err);
+      localStorage.clear();
+      navigate('/');
+    }
+  };
 
   if (!user) return <Typography>Loading...</Typography>;
 
@@ -59,6 +76,16 @@ const Dashboard = ({ games }) => {
       <Typography variant="h6" gutterBottom>
         Balance: ${user.balance}
       </Typography>
+
+      <Button
+        variant="contained"
+        color="secondary"
+        onClick={handleLogout}
+        sx={{ mb: 2 }}
+      >
+        Logout
+      </Button>
+
       <Grid container spacing={3}>
         {user.role !== 'client' && (
           <Grid item xs={12} md={6}>

@@ -100,6 +100,11 @@ REST_FRAMEWORK = {
     ],
 }
 
+SIMPLE_JWT = {
+    'BLACKLIST_AFTER_ROTATION': True,
+    'ROTATE_REFRESH_TOKENS': True,
+}
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]

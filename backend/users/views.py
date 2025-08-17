@@ -1,5 +1,6 @@
 # backend/users/views.py (updated perform_create to set created_by)
 
+from rest_framework_simplejwt.views import TokenBlacklistView
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -71,3 +72,16 @@ class UserViewSet(viewsets.ModelViewSet):
                 Transaction.objects.create(from_user=request.user, to_user=to_user, amount=amount, type='grant')
             return Response({'success': 'Coins granted'})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class LogoutView(TokenBlacklistView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response("Successful Logout", status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
