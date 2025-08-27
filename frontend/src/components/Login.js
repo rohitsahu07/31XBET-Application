@@ -1,9 +1,11 @@
+// src/components/Login.js
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../redux/userSlice';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, TextField, Typography, Paper } from '@mui/material';
+import { Box, Button, TextField, Typography, Checkbox, FormControlLabel, IconButton } from '@mui/material';
+
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -21,33 +23,33 @@ const Login = () => {
         headers: { Authorization: `Bearer ${res.data.access}` }
       });
       dispatch(setUser(userRes.data[0]));
-      navigate('/dashboard');
+      navigate('/home'); // Redirect to HomePage after login
     } catch (err) {
       console.error('Login failed', err);
     }
   };
 
   return (
-    <Box
-      display="flex"
-      justifyContent="center"
-      alignItems="center"
-      height="100vh"
-      bgcolor="background.default"
-    >
-      <Paper elevation={3} sx={{ padding: 4, width: { xs: '90%', sm: 400 } }}>
+    <Box className="login-container">
+      <IconButton className="user-icon" disabled>
+        
+      </IconButton>
+      <Box className="login-form">
         <Typography variant="h5" gutterBottom align="center">
-          Login to Betting App
+          Login to Bet Smart
         </Typography>
         <form onSubmit={handleLogin}>
           <TextField
-            label="Username"
+            label="Email ID"
             variant="outlined"
             fullWidth
             margin="normal"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            InputProps={{
+              className: 'input-field',
+            }}
           />
           <TextField
             label="Password"
@@ -58,12 +60,25 @@ const Login = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            InputProps={{
+              className: 'input-field',
+            }}
           />
-          <Button variant="contained" color="primary" fullWidth type="submit" sx={{ mt: 2 }}>
-            Login
+          <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
+            <FormControlLabel
+              control={<Checkbox />}
+              label="Remember me"
+              className="checkbox"
+            />
+            <Typography variant="body2" className="forgot-password">
+              Forgot Password?
+            </Typography>
+          </Box>
+          <Button variant="contained" color="primary" fullWidth type="submit" className="login-button">
+            LOGIN
           </Button>
         </form>
-      </Paper>
+      </Box>
     </Box>
   );
 };
