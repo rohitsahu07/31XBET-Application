@@ -19,13 +19,11 @@ const Dashboard = ({ games }) => {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const response = await axios.get(
-          `https://api.cricapi.com/v1/cricScore?apikey=${process.env.REACT_APP_CRICKET_API_KEY}`
-        );
+        const response = await axios.get('/api/bets/cricket/matches/');  // Updated path
         const data = response.data.data || [];
         setMatches(data);
       } catch (err) {
-        console.error('Error fetching matches from API', err);
+        console.error('Error fetching matches from backend', err);
       }
     };
     fetchMatches();

@@ -1,5 +1,5 @@
 # backend/bets/views.py (updated to handle cricket bets, add settlement task)
-
+from datetime import timezone
 import os
 import requests
 import json
@@ -12,61 +12,13 @@ from .models import Game, Bet
 from .serializers import GameSerializer, BetSerializer
 from ledger.models import Transaction
 from dotenv import load_dotenv
+from rest_framework.views import APIView
+from betting_app.cricket_matches import get_cricket_matches
 
 load_dotenv()
 
 CRICKET_API_BASE = os.getenv('CRICKET_API_BASE', 'https://api.cricapi.com/v1/')
 CRICKET_API_KEY = os.getenv('CRICKET_API_KEY')
-
-class GameViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Game.objects.all()
-    serializer_class = GameSerializer
-    permission_classes = [IsAuthenticated]
-
-    def list(self, request):
-        # Existing code for fetching and categorizing...
-        try:
-            response = requests.get(f"{CRICKET_API_BASE}cricScore?apikey={CRICKET_API_KEY}")
-            if response.status_code == 200:
-                data = response.json().get('data', [])
-                upcoming = [m for m in data if m.get('ms', '').lower() == 'match not started' or m.get('status', '').lower() == 'upcoming']
-                ongoing = [m for m in data if m.get('ms', '').lower() == 'live' or m.get('status', '').lower() == 'live']
-                completed = [m for m in data if m.get('ms', '').lower() == 'result' or m.get('status', '').lower() == 'completed']
-
-                print(f"Number of Upcoming Matches: {len(upcoming)}")
-                print(f"Number of Ongoing Matches: {len(ongoing)}")
-                print(f"Number of Completed Matches: {len(completed)}")
-
-                # print("\n===== Upcoming Matches =====")
-                # for m in upcoming:
-                #     print(f"Teams: {m.get('t1', 'N/A')} vs {m.get('t2', 'N/A')} | Date: {m.get('dateTimeGMT', 'N/A')} | Series: {m.get('series', 'N/A')}")
-
-                # print("\n===== Ongoing Matches =====")
-                # for m in ongoing:
-                #     print(f"Teams: {m.get('t1', 'N/A')} Score: {m.get('t1s', 'N/A')} vs {m.get('t2', 'N/A')} Score: {m.get('t2s', 'N/A')} | Series: {m.get('series', 'N/A')}")
-
-                # print("\n===== Completed Matches =====")
-                # for m in completed:
-                #     print(f"Teams: {m.get('t1', 'N/A')} Score: {m.get('t1s', 'N/A')} vs {m.get('t2', 'N/A')} Score: {m.get('t2s', 'N/A')} | Winner/Result: {m.get('status', 'N/A')} | Series: {m.get('series', 'N/A')}")
-
-                for match in data:
-                    status = match.get('status', 'upcoming').lower()
-                    if status not in ['upcoming', 'live', 'ended']:
-                        status = 'upcoming'
-                    Game.objects.update_or_create(
-                        name=match.get('name', 'Unknown Match'),
-                        defaults={
-                            'type': 'cricket',
-                            'status': status,
-                            'metadata': match
-                        }
-                    )
-            else:
-                print(f"API Error: Status {response.status_code} - {response.text}")
-        except Exception as e:
-            print(f"Error fetching matches: {e}")
-
-        return super().list(request)
 
 class BetViewSet(viewsets.ModelViewSet):
     serializer_class = BetSerializer
@@ -140,3 +92,29 @@ def settle_casino_bet(bet_id):
     bet.outcome = outcome
     bet.save()
     bet.user.save()
+
+class CricketMatchesView(APIView):
+    permission_classes = []  # No auth required; change to [IsAuthenticated] if you want login-only
+
+    def get(self, request):
+        matches = get_cricket_matches()
+        data = []
+        for dt, teams, series in matches:
+            teams_split = teams.split(' vs ')
+            t1 = teams_split[0] if len(teams_split) > 0 else ''
+            t2 = teams_split[1] if len(teams_split) > 1 else ''
+            # Convert to GMT (UTC) as expected by frontend
+            dt_gmt = dt.astimezone(timezone.utc)
+            dateTimeGMT = dt_gmt.isoformat(timespec='seconds')
+            data.append({
+                't1': t1,
+                't2': t2,
+                'matchType': 't20',  # Default; enhance script if you can extract this
+                'dateTimeGMT': dateTimeGMT,
+                'series': series,
+                'ms': 'match not started',  # Default to upcoming
+                'status': 'upcoming',
+                't1s': 'N/A',
+                't2s': 'N/A',
+            })
+        return Response({'data': data})  # Wrap in {'data': ...} to match original API format
