@@ -30,3 +30,12 @@ body {
 .MuiListItemText-primary {
   color: #333333;
 }
+.header-color{
+  background: #1cac78 !important;
+}
+.main-menu-btn{
+      background: linear-gradient(181deg, #28eca5, #214836);
+}
+.main-menu-btn:hover {
+  box-shadow: 0 4px 3px 1px #FCFCFC, 0 6px 8px #D6D7D9, 0 -4px 4px #CECFD1, 0 -6px 4px #FEFEFE, inset 0 0 3px 3px #CECFD1;
+}

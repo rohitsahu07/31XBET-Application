@@ -15,6 +15,8 @@ import CreateUserPage from './pages/CreateUserPage';
 import BetFormPage from './pages/BetFormPage';
 import Header from './components/Header';
 import SideBar from './components/SideBar';
+import RulesPage from './pages/RulesPage';
+import InplayPage from './pages/InplayPage';
 
 // Custom component to conditionally render Header
 const AppContent = () => {
@@ -31,15 +33,17 @@ const AppContent = () => {
     <>
       {showHeader && <Header onMenuToggle={handleMenuToggle} />}
       <SideBar open={sidebarOpen} onClose={handleMenuToggle} />
-      <Box sx={{ mt: showHeader ? 8 : 0, p: 0 }}>
+      <Box sx={{ mt: showHeader ? 0 : 0, p: 0 }}>
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/home" element={<HomePage />} />
+          <Route path="/rules" element={<RulesPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/ledger" element={<LedgerPage />} />
           <Route path="/hierarchy" element={<HierarchyPage />} />
           <Route path="/create-user" element={<CreateUserPage />} />
           <Route path="/bet-form" element={<BetFormPage />} />
+          <Route path="/inplay/matches" element={<InplayPage />} />
         </Routes>
       </Box>
     </>

@@ -3,18 +3,30 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../redux/userSlice';
-import { useNavigate } from 'react-router-dom';
-import { Box, Button, TextField, Typography, Checkbox, FormControlLabel, IconButton } from '@mui/material';
-
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { FaUserCircle } from "react-icons/fa";
+// import { Box, Button, TextField, IconButton, Link, InputAdornment } from '@mui/material';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [usernameError, setUsernameError] = useState(false);
+  const [usernameErrorMessage, setUsernameErrorMessage] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+  const [passwordErrorMessage, setPasswordErrorMessage] = useState('');
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    // Reset error states before each submit
+    setUsernameError(false);
+    setUsernameErrorMessage('');
+    setPasswordError(false);
+    setPasswordErrorMessage('');
+
     try {
       const res = await axios.post('/api/token/', { username, password });
       localStorage.setItem('access_token', res.data.access);
@@ -23,63 +35,59 @@ const Login = () => {
         headers: { Authorization: `Bearer ${res.data.access}` }
       });
       dispatch(setUser(userRes.data[0]));
-      navigate('/home'); // Redirect to HomePage after login
+      navigate('/rules');
     } catch (err) {
       console.error('Login failed', err);
+      
+      // Set custom error messages for both fields on server error
+      setUsernameError(true);
+      setUsernameErrorMessage('Wrong username');
+      setPasswordError(true);
+      setPasswordErrorMessage('Wrong password');
     }
   };
 
   return (
-    <Box className="login-container">
-      <IconButton className="user-icon" disabled>
-        
-      </IconButton>
-      <Box className="login-form">
-        <Typography variant="h5" gutterBottom align="center">
-          Login to Bet Smart
-        </Typography>
-        <form onSubmit={handleLogin}>
-          <TextField
-            label="Email ID"
-            variant="outlined"
-            fullWidth
-            margin="normal"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            InputProps={{
-              className: 'input-field',
-            }}
+    <div className="login-body">
+      <div className="container">
+        <img src="frontend_assets/main_logo.png" alt="main" width={120} height={120} />
+
+        <form onSubmit={handleLogin} style={{ marginTop: "10px" }}>
+          <input 
+            type="text" 
+            placeholder="Username" 
+            className="input-field mt-2" 
+            value={username} 
+            onChange={(e) => setUsername(e.target.value)} 
+            required 
+            id="username" 
+            name="username" 
+            autoComplete="username" 
+            autoFocus 
           />
-          <TextField
-            label="Password"
-            type="password"
-            variant="outlined"
-            fullWidth
-            margin="normal"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            InputProps={{
-              className: 'input-field',
-            }}
+          {usernameError && <div className="error-message">{usernameErrorMessage}</div>}
+
+          <input 
+            type="password" 
+            placeholder="Password" 
+            className="input-field" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            required 
+            id="password" 
+            name="password" 
+            autoComplete="current-password" 
           />
-          <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-            <FormControlLabel
-              control={<Checkbox />}
-              label="Remember me"
-              className="checkbox"
-            />
-            <Typography variant="body2" className="forgot-password">
-              Forgot Password?
-            </Typography>
-          </Box>
-          <Button variant="contained" color="primary" fullWidth type="submit" className="login-button">
-            LOGIN
-          </Button>
+          {passwordError && <div className="error-message">{passwordErrorMessage}</div>}
+
+          <RouterLink to="/forgot-password" className="forgot">forgot password?</RouterLink>
+
+          <button className="btn" type="submit">Sign in</button>
         </form>
-      </Box>
-    </Box>
+
+        <RouterLink to="/register" className="register">register</RouterLink>
+      </div>
+    </div>
   );
 };
 

@@ -94,27 +94,34 @@ def settle_casino_bet(bet_id):
     bet.user.save()
 
 class CricketMatchesView(APIView):
-    permission_classes = []  # No auth required; change to [IsAuthenticated] if you want login-only
+    permission_classes = []  # Public; set [IsAuthenticated] if auth needed
 
     def get(self, request):
         matches = get_cricket_matches()
         data = []
-        for dt, teams, series in matches:
-            teams_split = teams.split(' vs ')
-            t1 = teams_split[0] if len(teams_split) > 0 else ''
-            t2 = teams_split[1] if len(teams_split) > 1 else ''
-            # Convert to GMT (UTC) as expected by frontend
+
+        for match in matches:
+            dt = match["datetime"]           # datetime object (IST)
+            teams = match["teams"]           # list of dicts
+            series = match["league"]
+
+            # Convert to UTC (GMT) for frontend
             dt_gmt = dt.astimezone(timezone.utc)
-            dateTimeGMT = dt_gmt.isoformat(timespec='seconds')
+            dateTimeGMT = dt_gmt.isoformat(timespec="seconds")
+
+            t1 = teams[0]["name"] if len(teams) > 0 else ""
+            t2 = teams[1]["name"] if len(teams) > 1 else ""
+
             data.append({
-                't1': t1,
-                't2': t2,
-                'matchType': 't20',  # Default; enhance script if you can extract this
-                'dateTimeGMT': dateTimeGMT,
-                'series': series,
-                'ms': 'match not started',  # Default to upcoming
-                'status': 'upcoming',
-                't1s': 'N/A',
-                't2s': 'N/A',
+                "t1": t1,
+                "t2": t2,
+                "matchType": "t20",  # TODO: extract real type if available
+                "dateTimeGMT": dateTimeGMT,
+                "series": series,
+                "ms": "match not started",  # default
+                "status": "upcoming",       # default
+                "t1s": "N/A",
+                "t2s": "N/A",
             })
-        return Response({'data': data})  # Wrap in {'data': ...} to match original API format
+
+        return Response({"data": data})
