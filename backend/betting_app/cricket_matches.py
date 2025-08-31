@@ -1,249 +1,174 @@
-import requests
-import http.client
-import json
-import re
 import os
-from datetime import datetime, timedelta, timezone
-from collections import defaultdict
+import requests
+from datetime import datetime, timezone, timedelta
+from dotenv import load_dotenv
 
-def get_cricket_matches():
-    # ---------- Timezone ----------
-    IST = timezone(timedelta(hours=5, minutes=30))
-    today_str = datetime.now(IST).strftime("%d-%m-%Y")
-    today_date = datetime.now(IST).date()
-    now_ist = datetime.now(IST)
+# 🔹 Load environment variables
+load_dotenv()
 
-    # ---------- Allow List ----------
-    LEAGUE_PATTERNS = [
-        r"\bindian premier league\b|\bipl\b",
-        r"\bdelhi premier league\b|\bdpl\b",
-        r"\bmaharaja trophy\b|\bksca t20\b",
-        r"\btamil nadu premier league\b|\btnpl\b",
-        r"\buttar pradesh t20\b|\bup t20\b",
-        r"\bandhra premier league\b|\bapl\b",
-        r"\bsaurashtra premier league\b|\bspl\b",
-        r"\bt20 mumbai\b|\bmumbai t20\b",
-        r"\bwomen'?s premier league\b|\bwpl\b",
-        r"\bthe hundred\b",
-        r"\bbig bash league\b|\bbbl\b",
-        r"\bbangladesh premier league\b|\bbpl\b",
-        r"\blanka premier league\b|\blpl\b",
-        r"\bcaribbean premier league\b|\bcpl\b",
-        r"\bsa20\b",
-        r"\bpakistan super league\b|\bpsl\b",
-        r"\babu dhabi t10\b|\bt10 league\b",
-        r"\bwomen'?s big bash league\b|\bwbb[l1]\b",
-        r"\bfairbreak\b",
-        r"\bmetro bank one day cup\b",  # Added for ENG domestic OD
-        r"\bone[- ]day cup\b",
-        r"\bkerala t20 trophy\b",        # Added for Kochi/Trivandrum
-        r"\bkerala cricket league\b|\bkcl\b",
-        r"\buttar pradesh premier league\b|\buppl\b"
-    ]
-    LEAGUE_REGEXES = [re.compile(p, re.IGNORECASE) for p in LEAGUE_PATTERNS]
+# 📌 CricAPI credentials
+API_KEY = os.getenv("CRICAPI_KEY")
+BASE_URL = "https://api.cricapi.com/v1/currentMatches"
 
-    # ---------- Exclude List ----------
-    EXCLUDE_PATTERNS = [
-        r"\bcentral zone\b",
-        r"\beast zone\b",
-        r"\bnorth zone\b",
-        r"\bnorth east zone\b",
-        r"\bsouth zone\b",
-        r"\bwest zone\b",
-        r"\bquarter-final\b"
-    ]
-    EXCLUDE_REGEXES = [re.compile(p, re.IGNORECASE) for p in EXCLUDE_PATTERNS]
+# 📌 Known leagues mapping
+LEAGUES = {
+    "kanpur": "Uttar Pradesh T20",
+    "meerut": "Uttar Pradesh T20",
+    "lucknow": "Uttar Pradesh T20",
+    "gorakhpur": "Uttar Pradesh T20",
+    "noida": "Uttar Pradesh T20",
+    "delhi": "Delhi Premier League",
+    "thrissur": "Kerala T20 Trophy",
+    "calicut": "Kerala T20 Trophy",
+    "alleppey": "Kerala T20 Trophy",
+    "kollam": "Kerala T20 Trophy",
+    "koch": "Kerala T20 Trophy",
+    "south africa a": "One Day Internationals",
+    "new zealand a": "One Day Internationals",
+    "bangladesh": "International Twenty20 Matches",
+    "netherlands": "International Twenty20 Matches",
+    "northern superchargers w": "The Hundred - Womens",
+    "london spirit w": "The Hundred - Womens",
+    "trent rockets": "The Hundred",
+    "northern superchargers": "The Hundred",
+    "united arab emirates": "International Twenty20 Matches",
+    "pakistan": "International Twenty20 Matches",
+    "india": "Twenty20 Internationals",
+    "sri lanka": "Twenty20 Internationals",
+    "afghanistan": "Twenty20 Internationals",
+    "zimbabwe": "Twenty20 Internationals",
+}
 
-    INTL_KEYWORDS = {"T20I", "ODI", "TEST", "WT20I", "WODI", "WTEST"}
+# 🔹 Timezone for India
+IST = timezone(timedelta(hours=5, minutes=30))
 
-    FULL_MEMBERS = {
-        'australia', 'aus',
-        'england', 'eng',
-        'south africa', 'sa', 'rsa',
-        'new zealand', 'nz',
-        'west indies', 'wi',
-        'india', 'ind',
-        'pakistan', 'pak',
-        'sri lanka', 'sl', 'lka',
-        'bangladesh', 'ban', 'bdesh',
-        'afghanistan', 'afg',
-        'ireland', 'ire',
-        'zimbabwe', 'zim'
-    }
 
-    def is_major_team(team: str) -> bool:
-        t = team.lower().strip()
-        return any(t == fm or t.startswith(fm) for fm in FULL_MEMBERS)
+def normalize_name(name: str) -> str:
+    """Normalize team names by removing prefixes."""
+    name = name.lower().strip()
+    prefixes = ["adani", "gaur", "trn", "tn", "tnpl"]
+    for p in prefixes:
+        if name.startswith(p):
+            name = name.replace(p, "").strip()
+    return name
 
-    def is_allowed(series: str) -> bool:
-        if not series: return False
-        return any(rx.search(series) for rx in LEAGUE_REGEXES)
 
-    def is_excluded(series: str) -> bool:
-        if not series: return False
-        return any(rx.search(series) for rx in EXCLUDE_REGEXES)
+def detect_league(match: dict) -> str:
+    """Detect league/tournament name from match info."""
+    series = match.get("series", "")
+    match_type = match.get("matchType", "").lower()
+    teams = [normalize_name(t.get("name", "")) for t in match.get("teamInfo", [])]
+    venue = (match.get("venue") or "").lower()
 
-    def is_international(series: str, fmt: str = "", desc: str = "") -> bool:
-        blob = " ".join([series.upper(), fmt.upper(), desc.upper()])
-        return any(k in blob for k in INTL_KEYWORDS)
+    if series:
+        return series
 
-    def is_major_international(series: str, fmt: str = "", desc: str = "", t1: str = "", t2: str = "") -> bool:
-        if not is_international(series, fmt, desc): return False
-        return is_major_team(t1) and is_major_team(t2)
+    if match_type == "odi":
+        return "One Day Internationals"
+    if match_type == "test":
+        return "Test Matches"
+    if match_type == "t20":
+        for country in [
+            "india", "pakistan", "sri lanka", "zimbabwe",
+            "afghanistan", "united arab emirates",
+            "bangladesh", "netherlands"
+        ]:
+            if country in teams:
+                return "International Twenty20 Matches"
 
-    def normalize_series(series: str) -> str:
-        if not series:
-            return ""
-        s = series.lower()
-        s = re.sub(r"['’]", "", s)
-        s = re.sub(r"\b\d{4}(-\d{2})?\b", "", s)
-        s = re.sub(r"\s+", " ", s).strip()
-        return s
+    for key, league in LEAGUES.items():
+        if any(key in t for t in teams) or key in venue:
+            return league
 
-    def normalize_teams(teams: str) -> str:
-        if not teams:
-            return ""
-        t = teams.lower()
-        t = re.sub(r"\s*\(women\)\s*", " ", t)
-        t = re.sub(r"\s*\(men\)\s*", " ", t)
-        t = re.sub(r"\s*women\s*", " ", t)
-        t = re.sub(r"\s*women's\s*", " ", t)
-        t = re.sub(r"\s+", " ", t).strip()
-        team_list = [tm.strip() for tm in re.split(r"\s*vs\s*", t) if tm.strip()]
-        team_list.sort()
-        return " vs ".join(team_list)
+    return "Unknown Tournament"
 
-    # ---------- API Fetchers ----------
 
-    def from_api_cricket():
-        API_URL = "https://apiv2.api-cricket.com/cricket/"
-        API_KEY = os.environ.get('API_CRICKET_KEY')
-        if not API_KEY:
-            return []
-        today = datetime.now(IST).strftime("%Y-%m-%d")
-        params = {"method":"get_events","APIkey":API_KEY,"date_start":today,"date_stop":today}
-        try:
-            r = requests.get(API_URL, params=params, timeout=10).json()
-            if not r.get("success"): return []
-            matches = []
-            for m in r.get("result", []):
-                series = m.get("league_name","")
-                if is_excluded(series): continue
-                t1, t2 = m.get("event_home_team",""), m.get("event_away_team","")
-                if not (is_allowed(series) or is_major_international(series, t1=t1, t2=t2)): continue
-                dt_str = f"{m['event_date_start']} {m.get('event_time','00:00')}"
-                dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc).astimezone(IST)
-                if dt.date() != today_date: continue
-                matches.append((dt, f"{t1} vs {t2}", series))
-            return matches
-        except: return []
+def parse_match_datetime(date_str: str) -> datetime | None:
+    """Convert CricAPI datetime string to IST datetime object."""
+    if not date_str:
+        return None
 
-    def from_cricapi():
-        API_KEY = os.environ.get('CRICAPI_KEY')
-        if not API_KEY:
-            return []
-        URL = f"https://api.cricapi.com/v1/currentMatches?apikey={API_KEY}&offset=0"
-        try:
-            r = requests.get(URL, timeout=10).json().get("data", [])
-            matches = []
-            for m in r:
-                try:
-                    dt = datetime.fromisoformat(m["dateTimeGMT"])
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    dt = dt.astimezone(IST)
-                except: continue
-                if dt.date() != today_date: continue
-                series = m.get("name","")
-                if is_excluded(series): continue
-                t1, t2 = m["teams"]
-                fmt = m.get("matchType","")
-                status = m.get("status","")
-                if not (is_allowed(series) or is_major_international(series, fmt, status, t1, t2)): continue
-                matches.append((dt, f"{t1} vs {t2}", series))
-            return matches
-        except: return []
+    try:
+        if date_str.endswith("Z"):  # UTC Zulu format
+            dt = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = datetime.fromisoformat(date_str)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(IST)
+    except Exception as e:
+        print(f"⚠️ Failed to parse datetime: {date_str} ({e})")
+        return None
 
-    def from_entitysport():
-        API_TOKEN = os.environ.get('ENTITYSPORT_TOKEN')
-        if not API_TOKEN:
-            return []
-        URL = f"https://rest.entitysport.com/v2/matches/?per_page=50&paged=1&token={API_TOKEN}"
-        try:
-            r = requests.get(URL, timeout=10).json()
-            items = r.get("response", {}).get("items", [])
-            matches = []
-            for m in items:
-                try:
-                    dt = datetime.fromisoformat(m.get("date_start"))
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    dt = dt.astimezone(IST)
-                except: continue
-                if dt.date() != today_date: continue
-                series = m.get("subtitle","") or m.get("title","")
-                if is_excluded(series): continue
-                t1, t2 = m.get("teama", {}).get("name",""), m.get("teamb", {}).get("name","")
-                if not (is_allowed(series) or is_major_international(series, t1=t1, t2=t2)): continue
-                matches.append((dt, f"{t1} vs {t2}", series))
-            return matches
-        except: return []
 
-    def from_cricbuzz():
-        HOST = "cricbuzz-cricket.p.rapidapi.com"
-        KEY = os.environ.get('CRICBUZZ_KEY')
-        if not KEY:
-            return []
-        def fetch(ep):
-            conn = http.client.HTTPSConnection(HOST)
-            conn.request("GET", ep, headers={"x-rapidapi-key":KEY,"x-rapidapi-host":HOST})
-            res = conn.getresponse().read()
-            conn.close()
-            try: return json.loads(res.decode())
-            except: return {}
-        data = [fetch("/matches/v1/recent"), fetch("/matches/v1/upcoming")]
-        matches = []
-        for block in data:
-            for tm in block.get("typeMatches", []):
-                for s in tm.get("seriesMatches", []):
-                    wrapper = s.get("seriesAdWrapper",{})
-                    series = wrapper.get("seriesName","")
-                    for m in wrapper.get("matches", []):
-                        info = m.get("matchInfo",{})
-                        ts = info.get("startDate")
-                        if not ts: continue
-                        dt = datetime.fromtimestamp(int(ts)//1000, IST)
-                        if dt.date()!=today_date: continue
-                        if is_excluded(series): continue
-                        fmt = info.get("matchFormat","")
-                        desc = info.get("matchDesc","")
-                        t1 = info.get("team1",{}).get("teamName","")
-                        t2 = info.get("team2",{}).get("teamName","")
-                        if not (is_allowed(series) or is_major_international(series, fmt, desc, t1, t2)): continue
-                        matches.append((dt, f"{t1} vs {t2}", series))
-        return matches
+def get_cricket_matches() -> list[dict]:
+    """Fetch and return today's cricket matches in IST timezone."""
+    if not API_KEY:
+        print("⚠️ CRICAPI_KEY not found in environment")
+        return []
 
-    # ---------- Merge all ----------
+    today = datetime.now(IST).date()
     all_matches = []
-    for fetcher in [from_api_cricket, from_cricapi, from_entitysport, from_cricbuzz]:
-        all_matches.extend(fetcher())
+    offset = 0
 
-    # Strict filter to today's date
-    all_matches = [m for m in all_matches if m[0].date() == today_date]
+    # 🔹 Fetch matches with pagination
+    while True:
+        try:
+            response = requests.get(
+                f"{BASE_URL}?apikey={API_KEY}&offset={offset}",
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            matches = data.get("data", [])
+            if not matches:
+                break
+            all_matches.extend(matches)
+            offset += len(matches)
+        except Exception as e:
+            print("⚠️ API Error:", e)
+            break
 
-    # Group by normalized key
-    match_groups = defaultdict(list)
-    for dt, teams, series in all_matches:
-        n_teams = normalize_teams(teams)
-        n_series = normalize_series(series)
-        key = (dt.date(), n_teams, n_series)
-        match_groups[key].append((dt, teams, series))
-
-    # Select one per group (earliest time)
     final_matches = []
-    for key, group in match_groups.items():
-        group.sort(key=lambda x: x[0])
-        final_matches.append(group[0])
 
-    final_matches.sort(key=lambda x: x[0])
+    for match in all_matches:
+        match_dt = parse_match_datetime(
+            match.get("dateTimeGMT") or match.get("date")
+        )
+        if not match_dt or match_dt.date() != today:
+            continue
+
+        league_type = detect_league(match)
+
+        teams_info = [
+            {
+                "name": t.get("name", ""),
+                "shortname": t.get("shortname", ""),
+                "img": t.get("img", "")
+            }
+            for t in match.get("teamInfo", [])
+        ]
+
+        final_matches.append({
+            "datetime": match_dt,
+            "league": league_type,
+            "teams": teams_info
+        })
+
+    # Sort by datetime
+    final_matches.sort(key=lambda x: x["datetime"])
+
+    # Debug print
+    print("\n📅 Today's Matches")
+    print("=" * 70)
+    for idx, match in enumerate(final_matches, start=1):
+        team_str = " vs ".join(
+            [f'{t["name"]} ({t["shortname"]})' for t in match["teams"]]
+        )
+        print(f"{idx:2}. {team_str:<50} | {match['datetime'].strftime('%H:%M %p')} IST | {match['league']}")
+        for t in match["teams"]:
+            print(f"     - {t['shortname']} logo: {t['img']}")
+    print("=" * 70)
+
     return final_matches

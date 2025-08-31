@@ -1,42 +1,63 @@
-// src/pages/HomePage.js
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Box, Grid, Button, Typography } from '@mui/material';
+import React from "react";
+import { Link } from "react-router-dom";
+import { styled } from "@mui/material/styles";
+import { Box } from "@mui/material";
+
+const menuItems = [
+  { icon: "frontend_assets/Inplay.png", path: "/inplay/matches" },
+  { icon: "frontend_assets/Casino.png", path: "/casino" },
+  { icon: "frontend_assets/Profile.png", path: "/profile" },
+  { icon: "frontend_assets/Statement.png", path: "/statement" },
+  { icon: "frontend_assets/Free_Games.png", path: "/free-games" },
+  { icon: "frontend_assets/Rules.png", path: "/rules" },
+  { icon: "frontend_assets/My_Ledger.png", path: "/ledger" },
+  { icon: "frontend_assets/Password.png", path: "/password" },
+];
+
+const Item = styled("div")(() => ({
+  textAlign: "center",
+}));
 
 const HomePage = () => {
   return (
-    <Box sx={{ p: 3, backgroundColor: 'background.default' }}>
-      <Typography variant="h4" align="center" gutterBottom>
-        BetSmart Home Page
-      </Typography>
-      <Grid container spacing={3} justifyContent="center">
-        <Grid item xs={12} sm={6} md={4}>
-          <Button component={Link} to="/dashboard" variant="contained" fullWidth sx={{ height: 100 }}>
-            Dashboard
-          </Button>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Button component={Link} to="/ledger" variant="contained" fullWidth sx={{ height: 100 }}>
-            Ledger
-          </Button>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Button component={Link} to="/hierarchy" variant="contained" fullWidth sx={{ height: 100 }}>
-            Hierarchy
-          </Button>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Button component={Link} to="/create-user" variant="contained" fullWidth sx={{ height: 100 }}>
-            Create User
-          </Button>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Button component={Link} to="/bet-form" variant="contained" fullWidth sx={{ height: 100 }}>
-            Place Bet
-          </Button>
-        </Grid>
-        {/* Add more buttons for other pages as needed */}
-      </Grid>
+    <Box
+      sx={{
+        p: 2,
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        mt: 0
+      }}
+    >
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, // 👈 2 on mobile, 4 on desktop
+          gap: 2, // spacing between items
+          maxWidth: "900px",
+          width: "100%",
+        }}
+      >
+        {menuItems.map((item, index) => (
+          <Item key={index}>
+            <Link
+              to={item.path}
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <img
+                src={item.icon}
+                alt={`menu-${index}`}
+                style={{
+                  width: "150px", // bigger images
+                  height: "150px",
+                  objectFit: "contain",
+                }}
+              />
+            </Link>
+          </Item>
+        ))}
+      </Box>
     </Box>
   );
 };

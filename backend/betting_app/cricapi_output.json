@@ -1,0 +1,1122 @@
+{
+    "apikey": "51bc1483-e80b-4843-8e2e-023c5ecfcad6",
+    "data": [
+        {
+            "id": "58c2564f-0279-414e-a27a-556a680f12b0",
+            "name": "Guernsey vs Switzerland, 2nd T20I",
+            "matchType": "t20",
+            "status": "No result",
+            "venue": "King George V Sports Ground, Castel",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T15:00:00",
+            "teams": [
+                "Guernsey",
+                "Switzerland"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Guernsey",
+                    "shortname": "GUE",
+                    "img": "https://g.cricapi.com/iapi/610-637867646502139699.webp?w=48"
+                },
+                {
+                    "name": "Switzerland",
+                    "shortname": "SWZ",
+                    "img": "https://g.cricapi.com/iapi/1863-637992896828658029.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 83,
+                    "w": 3,
+                    "o": 13,
+                    "inning": "Switzerland Inning 1"
+                }
+            ],
+            "series_id": "ff9aa866-9d88-4e5f-a3e3-bb42a6484aa1",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "3971fc05-ab5e-4421-afb0-c04c2e14464d",
+            "name": "Guernsey vs Switzerland, 1st T20I",
+            "matchType": "t20",
+            "status": "No result",
+            "venue": "King George V Sports Ground, Castel",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T10:00:00",
+            "teams": [
+                "Guernsey",
+                "Switzerland"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Guernsey",
+                    "shortname": "GUE",
+                    "img": "https://g.cricapi.com/iapi/610-637867646502139699.webp?w=48"
+                },
+                {
+                    "name": "Switzerland",
+                    "shortname": "SWZ",
+                    "img": "https://g.cricapi.com/iapi/1863-637992896828658029.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 154,
+                    "w": 4,
+                    "o": 20,
+                    "inning": "Guernsey Inning 1"
+                },
+                {
+                    "r": 16,
+                    "w": 1,
+                    "o": 2,
+                    "inning": "Switzerland Inning 1"
+                }
+            ],
+            "series_id": "ff9aa866-9d88-4e5f-a3e3-bb42a6484aa1",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "3c90d08a-7712-40e1-ad45-085b7a56ea0c",
+            "name": "Kenya vs Kuwait, 27th Match",
+            "matchType": "odi",
+            "status": "No result",
+            "venue": "Grainville, St Saviour",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T10:00:00",
+            "teams": [
+                "Kenya",
+                "Kuwait"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Kenya",
+                    "shortname": "KEN",
+                    "img": "https://g.cricapi.com/iapi/620-637877088284816006.webp?w=48"
+                },
+                {
+                    "name": "Kuwait",
+                    "shortname": "KUW",
+                    "img": "https://g.cricapi.com/iapi/621-637864920257551899.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 85,
+                    "w": 4,
+                    "o": 19,
+                    "inning": "Kuwait Inning 1"
+                }
+            ],
+            "series_id": "fca4f99a-269b-4fac-b6d0-4a7f70c6472e",
+            "fantasyEnabled": true,
+            "bbbEnabled": false,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "0ff284eb-05d6-4bd6-b097-e5b2ff9e9e45",
+            "name": "Papua New Guinea vs Qatar, 28th Match",
+            "matchType": "odi",
+            "status": "No result",
+            "venue": "Farmers Cricket Club Ground, St Martin",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T10:00:00",
+            "teams": [
+                "Papua New Guinea",
+                "Qatar"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Papua New Guinea",
+                    "shortname": "PNG",
+                    "img": "https://g.cricapi.com/iapi/68-637877083835752068.webp?w=48"
+                },
+                {
+                    "name": "Qatar",
+                    "shortname": "QAT",
+                    "img": "https://g.cricapi.com/iapi/577-637877086204623715.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 145,
+                    "w": 10,
+                    "o": 38,
+                    "inning": "Papua New Guinea Inning 1"
+                },
+                {
+                    "r": 21,
+                    "w": 2,
+                    "o": 5,
+                    "inning": "Qatar Inning 1"
+                }
+            ],
+            "series_id": "fca4f99a-269b-4fac-b6d0-4a7f70c6472e",
+            "fantasyEnabled": true,
+            "bbbEnabled": false,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "fb7e497d-d14b-473e-8a4a-777dd2fae4aa",
+            "name": "Hungary vs Serbia, 4th Match",
+            "matchType": "t20",
+            "status": "Serbia won by 5 runs (DLS method)",
+            "venue": "GB Oval, Szodliget",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T09:30:00",
+            "teams": [
+                "Hungary",
+                "Serbia"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Hungary",
+                    "shortname": "HUN",
+                    "img": "https://g.cricapi.com/iapi/612-637901951267363641.webp?w=48"
+                },
+                {
+                    "name": "Serbia",
+                    "shortname": "SRB",
+                    "img": "https://g.cricapi.com/iapi/651-637876983315009937.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 141,
+                    "w": 9,
+                    "o": 20,
+                    "inning": "Hungary Inning 1"
+                },
+                {
+                    "r": 88,
+                    "w": 3,
+                    "o": 13.4,
+                    "inning": "Serbia Inning 1"
+                }
+            ],
+            "series_id": "e5fcc809-40bf-4ea6-bdce-dfad5c9988d3",
+            "fantasyEnabled": true,
+            "bbbEnabled": false,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "183a099f-5c97-4918-baf3-c4928c1ee308",
+            "name": "Croatia vs Serbia, 3rd Match",
+            "matchType": "t20",
+            "status": "Serbia won by 84 runs",
+            "venue": "GB Oval, Szodliget",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T06:00:00",
+            "teams": [
+                "Croatia",
+                "Serbia"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Croatia",
+                    "shortname": "CRT",
+                    "img": "https://g.cricapi.com/iapi/1773-637935033567722609.webp?w=48"
+                },
+                {
+                    "name": "Serbia",
+                    "shortname": "SRB",
+                    "img": "https://g.cricapi.com/iapi/651-637876983315009937.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 219,
+                    "w": 4,
+                    "o": 20,
+                    "inning": "Serbia Inning 1"
+                },
+                {
+                    "r": 135,
+                    "w": 8,
+                    "o": 20,
+                    "inning": "Croatia Inning 1"
+                }
+            ],
+            "series_id": "e5fcc809-40bf-4ea6-bdce-dfad5c9988d3",
+            "fantasyEnabled": true,
+            "bbbEnabled": false,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "1ae88794-ce44-49c3-b099-e06703d3a9e3",
+            "name": "South Africa A vs New Zealand A, 1st Unofficial ODI",
+            "matchType": "odi",
+            "status": "South Africa A won by 3 wkts",
+            "venue": "Tshwane University of Technology Oval, Pretoria",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T08:00:00",
+            "teams": [
+                "South Africa A",
+                "New Zealand A"
+            ],
+            "teamInfo": [
+                {
+                    "name": "New Zealand A",
+                    "shortname": "NZA",
+                    "img": "https://g.cricapi.com/iapi/2180-637982269820638615.webp?w=48"
+                },
+                {
+                    "name": "South Africa A",
+                    "shortname": "SA-A",
+                    "img": "https://g.cricapi.com/iapi/1132-637877069157056525.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 229,
+                    "w": 10,
+                    "o": 48.3,
+                    "inning": "New Zealand A Inning 1"
+                },
+                {
+                    "r": 231,
+                    "w": 7,
+                    "o": 29.2,
+                    "inning": "South Africa A Inning 1"
+                }
+            ],
+            "series_id": "4030ad04-213a-47c9-82c1-d4aa25fb790a",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "bcf7abf7-f02d-47bf-a564-a33d523a337b",
+            "name": "Nigeria Women vs Sierra Leone Women, 1st Match, Group A",
+            "matchType": "t20",
+            "status": "Match not started",
+            "venue": "Namibia Cricket Ground, Windhoek",
+            "date": "2025-08-31",
+            "dateTimeGMT": "2025-08-31T07:30:00",
+            "teams": [
+                "Nigeria Women",
+                "Sierra Leone Women"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Nigeria Women",
+                    "shortname": "NGW",
+                    "img": "https://g.cricapi.com/iapi/635-637867646765235442.webp?w=48"
+                },
+                {
+                    "name": "Sierra Leone Women",
+                    "shortname": "SLW",
+                    "img": "https://g.cricapi.com/iapi/6148-638159736955064414.webp?w=48"
+                }
+            ],
+            "score": [],
+            "series_id": "15cbe3a0-12cc-42f4-8120-c6e7fbe75acd",
+            "fantasyEnabled": false,
+            "bbbEnabled": false,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": false
+        },
+        {
+            "id": "6e2843a5-4bf0-44eb-8206-3863763d6a80",
+            "name": "Denmark Women vs Finland Women, 5th Match",
+            "matchType": "t20",
+            "status": "Denmark Women won by 7 wkts",
+            "venue": "Ishoj Cricket Club, Vejledalen",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T14:00:00",
+            "teams": [
+                "Denmark Women",
+                "Finland Women"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Denmark Women",
+                    "shortname": "DW",
+                    "img": "https://g.cricapi.com/iapi/599-637867438645047537.webp?w=48"
+                },
+                {
+                    "name": "Finland Women",
+                    "shortname": "FINW",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                }
+            ],
+            "score": [
+                {
+                    "r": 95,
+                    "w": 4,
+                    "o": 20,
+                    "inning": "Finland Women Inning 1"
+                },
+                {
+                    "r": 99,
+                    "w": 3,
+                    "o": 14.4,
+                    "inning": "Denmark Women Inning 1"
+                }
+            ],
+            "series_id": "37f449cf-4f49-48f1-8571-be9715e44b68",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "f59c5bd3-4233-4570-9671-ea41713c6034",
+            "name": "Germany Women vs Norway Women, 6th Match",
+            "matchType": "t20",
+            "status": "Germany Women won by 78 runs",
+            "venue": "Albertslund Cricket Club, Copenhagen",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T14:00:00",
+            "teams": [
+                "Germany Women",
+                "Norway Women"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Germany Women",
+                    "shortname": "GEMW",
+                    "img": "https://g.cricapi.com/iapi/1682-637926300796611117.webp?w=48"
+                },
+                {
+                    "name": "Norway Women",
+                    "shortname": "NOR-W",
+                    "img": "https://g.cricapi.com/iapi/3003-638040162404768361.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 161,
+                    "w": 3,
+                    "o": 20,
+                    "inning": "Germany Women Inning 1"
+                },
+                {
+                    "r": 83,
+                    "w": 10,
+                    "o": 18.1,
+                    "inning": "Norway Women Inning 1"
+                }
+            ],
+            "series_id": "37f449cf-4f49-48f1-8571-be9715e44b68",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "bc9b30d7-034a-4dcb-a4d7-2dab31045eb6",
+            "name": "Denmark Women vs Sweden Women, 4th Match",
+            "matchType": "t20",
+            "status": "Sweden Women won by 7 runs",
+            "venue": "Albertslund Cricket Club, Copenhagen",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T08:30:00",
+            "teams": [
+                "Denmark Women",
+                "Sweden Women"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Denmark Women",
+                    "shortname": "DW",
+                    "img": "https://g.cricapi.com/iapi/599-637867438645047537.webp?w=48"
+                },
+                {
+                    "name": "Sweden Women",
+                    "shortname": "SWE-W",
+                    "img": "https://g.cricapi.com/iapi/3004-638040161487648380.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 94,
+                    "w": 9,
+                    "o": 20,
+                    "inning": "Sweden Women Inning 1"
+                },
+                {
+                    "r": 87,
+                    "w": 9,
+                    "o": 20,
+                    "inning": "Denmark Women Inning 1"
+                }
+            ],
+            "series_id": "37f449cf-4f49-48f1-8571-be9715e44b68",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "db73cb41-b15e-4335-a9f4-5b4a6618a50b",
+            "name": "Finland Women vs Norway Women, 3rd Match",
+            "matchType": "t20",
+            "status": "Norway Women won by 1 wkt",
+            "venue": "Ishoj Cricket Club, Vejledalen",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T08:30:00",
+            "teams": [
+                "Finland Women",
+                "Norway Women"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Finland Women",
+                    "shortname": "FINW",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                },
+                {
+                    "name": "Norway Women",
+                    "shortname": "NOR-W",
+                    "img": "https://g.cricapi.com/iapi/3003-638040162404768361.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 66,
+                    "w": 10,
+                    "o": 14.5,
+                    "inning": "Finland Women Inning 1"
+                },
+                {
+                    "r": 67,
+                    "w": 9,
+                    "o": 18.4,
+                    "inning": "Norway Women Inning 1"
+                }
+            ],
+            "series_id": "37f449cf-4f49-48f1-8571-be9715e44b68",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "9e7e84f0-090c-40ff-bf98-0b6d4eeec31b",
+            "name": "Central Zone vs North East Zone, 2nd Quarter-Final",
+            "matchType": "test",
+            "status": "Day 4: 2nd Session - North East Zone need 528 runs",
+            "venue": "BCCI Centre of Excellence Ground B, Bengaluru",
+            "date": "2025-08-28",
+            "dateTimeGMT": "2025-08-28T04:00:00",
+            "teams": [
+                "Central Zone",
+                "North East Zone"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Central Zone",
+                    "shortname": "CZ",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                },
+                {
+                    "name": "North East Zone",
+                    "shortname": "NEZ",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                }
+            ],
+            "score": [
+                {
+                    "r": 532,
+                    "w": 4,
+                    "o": 102,
+                    "inning": "Central Zone Inning 1"
+                },
+                {
+                    "r": 185,
+                    "w": 10,
+                    "o": 69.3,
+                    "inning": "North East Zone Inning 1"
+                },
+                {
+                    "r": 331,
+                    "w": 7,
+                    "o": 80.3,
+                    "inning": "Central Zone Inning 2"
+                },
+                {
+                    "r": 151,
+                    "w": 3,
+                    "o": 40,
+                    "inning": "North East Zone Inning 2"
+                }
+            ],
+            "series_id": "144cc7da-6da4-4df7-8c08-ae818fb5b3fd",
+            "fantasyEnabled": true,
+            "bbbEnabled": false,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": false
+        },
+        {
+            "id": "6f831aac-2e4a-40fa-b6b3-a06961923472",
+            "name": "North Zone vs East Zone, 1st Quarter-Final",
+            "matchType": "test",
+            "status": "Day 4: 2nd Session - North Zone lead by 770 runs",
+            "venue": "BCCI Centre of Excellence Ground, Bengaluru",
+            "date": "2025-08-28",
+            "dateTimeGMT": "2025-08-28T04:00:00",
+            "teams": [
+                "North Zone",
+                "East Zone"
+            ],
+            "teamInfo": [
+                {
+                    "name": "East Zone",
+                    "shortname": "EZ",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                },
+                {
+                    "name": "North Zone",
+                    "shortname": "NOZ",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                }
+            ],
+            "score": [
+                {
+                    "r": 405,
+                    "w": 10,
+                    "o": 93.2,
+                    "inning": "East Zone Inning 1"
+                },
+                {
+                    "r": 230,
+                    "w": 10,
+                    "o": 56.1,
+                    "inning": "North Zone Inning 1"
+                },
+                {
+                    "r": 595,
+                    "w": 3,
+                    "o": 132,
+                    "inning": "East Zone Inning 2"
+                }
+            ],
+            "series_id": "144cc7da-6da4-4df7-8c08-ae818fb5b3fd",
+            "fantasyEnabled": true,
+            "bbbEnabled": false,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": false
+        },
+        {
+            "id": "ebb7032e-c3b5-4640-9bb3-f3127a8e0840",
+            "name": "Zimbabwe vs Sri Lanka, 2nd ODI",
+            "matchType": "odi",
+            "status": "Sri Lanka opt to bowl",
+            "venue": "Harare Sports Club, Harare",
+            "date": "2025-08-31",
+            "dateTimeGMT": "2025-08-31T07:30:00",
+            "teams": [
+                "Zimbabwe",
+                "Sri Lanka"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Sri Lanka",
+                    "shortname": "SL",
+                    "img": "https://g.cricapi.com/iapi/4191-638101639309122979.webp?w=48"
+                },
+                {
+                    "name": "Zimbabwe",
+                    "shortname": "ZIM",
+                    "img": "https://g.cricapi.com/iapi/575-637877079629985215.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 40,
+                    "w": 0,
+                    "o": 6.4,
+                    "inning": "Zimbabwe Inning 1"
+                }
+            ],
+            "series_id": "382ca213-8e4f-426e-9004-9460481b944d",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": false
+        },
+        {
+            "id": "938e66d6-24d1-42c7-9609-03f546f3c243",
+            "name": "United Arab Emirates vs Pakistan, 2nd Match",
+            "matchType": "t20",
+            "status": "Pakistan won by 31 runs",
+            "venue": "Sharjah Cricket Stadium, Sharjah",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T15:00:00",
+            "teams": [
+                "United Arab Emirates",
+                "Pakistan"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Pakistan",
+                    "shortname": "PAK",
+                    "img": "https://g.cricapi.com/iapi/66-637877075103236690.webp?w=48"
+                },
+                {
+                    "name": "United Arab Emirates",
+                    "shortname": "UAE",
+                    "img": "https://g.cricapi.com/iapi/92-637877081068315608.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 207,
+                    "w": 10,
+                    "o": 20,
+                    "inning": "Pakistan Inning 1"
+                },
+                {
+                    "r": 176,
+                    "w": 8,
+                    "o": 20,
+                    "inning": "United Arab Emirates Inning 1"
+                }
+            ],
+            "series_id": "806535b7-1a38-435c-a793-5ee22088f125",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "89697245-061d-4830-beb6-ca65ec20f26e",
+            "name": "Bangladesh vs Netherlands, 1st T20I",
+            "matchType": "t20",
+            "status": "Bangladesh won by 8 wkts",
+            "venue": "Sylhet International Cricket Stadium, Sylhet",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T12:00:00",
+            "teams": [
+                "Bangladesh",
+                "Netherlands"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Bangladesh",
+                    "shortname": "BAN",
+                    "img": "https://g.cricapi.com/iapi/9-637877074109248302.webp?w=48"
+                },
+                {
+                    "name": "Netherlands",
+                    "shortname": "NED",
+                    "img": "https://g.cricapi.com/iapi/55-637877084465746618.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 136,
+                    "w": 8,
+                    "o": 20,
+                    "inning": "Netherlands Inning 1"
+                },
+                {
+                    "r": 138,
+                    "w": 2,
+                    "o": 13.3,
+                    "inning": "Bangladesh Inning 1"
+                }
+            ],
+            "series_id": "12ada2b4-4eee-4324-bfae-2f43c40c2dfa",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "7c5a77a1-2f0c-4d28-9a65-145eb5780960",
+            "name": "Kochi Blue Tigers vs Thrissur Titans, 20th Match",
+            "matchType": "t20",
+            "status": "Kochi Blue Tigers won by 6 wkts",
+            "venue": "Greenfield International Stadium, Thiruvananthapuram",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T13:15:00",
+            "teams": [
+                "Kochi Blue Tigers",
+                "Thrissur Titans"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Kochi Blue Tigers",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                },
+                {
+                    "name": "Thrissur Titans",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                }
+            ],
+            "score": [
+                {
+                    "r": 172,
+                    "w": 9,
+                    "o": 20,
+                    "inning": "Thrissur Titans Inning 1"
+                },
+                {
+                    "r": 173,
+                    "w": 4,
+                    "o": 19.1,
+                    "inning": "Kochi Blue Tigers Inning 1"
+                }
+            ],
+            "series_id": "e2f123f2-a99e-4d89-aee0-6e169b8f1bbb",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "2f7534d3-c753-43b3-bb4b-14bcae96520c",
+            "name": "Adani Trivandrum Royals vs Calicut Globstars, 19th Match",
+            "matchType": "t20",
+            "status": "Calicut Globstars won by 13 runs",
+            "venue": "Greenfield International Stadium, Thiruvananthapuram",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T09:00:00",
+            "teams": [
+                "Adani Trivandrum Royals",
+                "Calicut Globstars"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Adani Trivandrum Royals",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                },
+                {
+                    "name": "Calicut Globstars",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                }
+            ],
+            "score": [
+                {
+                    "r": 186,
+                    "w": 6,
+                    "o": 20,
+                    "inning": "Calicut Globstars Inning 1"
+                },
+                {
+                    "r": 173,
+                    "w": 10,
+                    "o": 19.3,
+                    "inning": "Adani Trivandrum Royals Inning 1"
+                }
+            ],
+            "series_id": "e2f123f2-a99e-4d89-aee0-6e169b8f1bbb",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "d5085e20-5dd5-474b-8140-e4bb6f1b0265",
+            "name": "Kashi Rudras vs Meerut Mavericks, 27th Match",
+            "matchType": "t20",
+            "status": "Meerut Mavericks won by 7 wkts",
+            "venue": "Bharat Ratna Shri Atal Bihari Vajpayee Ekana Cricket Stadium, Lucknow",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T14:00:00",
+            "teams": [
+                "Kashi Rudras",
+                "Meerut Mavericks"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Kashi Rudras",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                },
+                {
+                    "name": "Meerut Mavericks",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                }
+            ],
+            "score": [
+                {
+                    "r": 135,
+                    "w": 8,
+                    "o": 20,
+                    "inning": "Kashi Rudras Inning 1"
+                },
+                {
+                    "r": 139,
+                    "w": 3,
+                    "o": 15.4,
+                    "inning": "Meerut Mavericks Inning 1"
+                }
+            ],
+            "series_id": "8b06b597-dab4-4459-a124-a8a5a4129814",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "db069f25-5c9d-40aa-ba22-3e59506cd8c1",
+            "name": "Gaur Gorakhapur Lions vs Lucknow Falcons, 26th Match",
+            "matchType": "t20",
+            "status": "Lucknow Falcons won by 60 runs",
+            "venue": "Bharat Ratna Shri Atal Bihari Vajpayee Ekana Cricket Stadium, Lucknow",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T09:30:00",
+            "teams": [
+                "Gaur Gorakhapur Lions",
+                "Lucknow Falcons"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Gaur Gorakhapur Lions",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                },
+                {
+                    "name": "Lucknow Falcons",
+                    "img": "https://h.cricapi.com/img/icon512.png"
+                }
+            ],
+            "score": [
+                {
+                    "r": 169,
+                    "w": 10,
+                    "o": 19.3,
+                    "inning": "Lucknow Falcons Inning 1"
+                },
+                {
+                    "r": 109,
+                    "w": 10,
+                    "o": 17.3,
+                    "inning": "Gaur Gorakhapur Lions Inning 1"
+                }
+            ],
+            "series_id": "8b06b597-dab4-4459-a124-a8a5a4129814",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "2cae4321-95e7-46a2-84ef-2a54635c76df",
+            "name": "Trinbago Knight Riders vs Guyana Amazon Warriors, 17th Match",
+            "matchType": "t20",
+            "status": "Trinbago Knight Riders won by 6 wkts",
+            "venue": "Brian Lara Stadium, Tarouba, Trinidad",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T23:00:00",
+            "teams": [
+                "Trinbago Knight Riders",
+                "Guyana Amazon Warriors"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Guyana Amazon Warriors",
+                    "shortname": "GAW",
+                    "img": "https://g.cricapi.com/iapi/174-637945408285271060.webp?w=48"
+                },
+                {
+                    "name": "Trinbago Knight Riders",
+                    "shortname": "TKR",
+                    "img": "https://g.cricapi.com/iapi/293-637932465560269082.png?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 163,
+                    "w": 9,
+                    "o": 20,
+                    "inning": "Guyana Amazon Warriors Inning 1"
+                },
+                {
+                    "r": 169,
+                    "w": 4,
+                    "o": 17.2,
+                    "inning": "Trinbago Knight Riders Inning 1"
+                }
+            ],
+            "series_id": "d83eabfc-d381-4ea2-aa1d-9765506bdd9d",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "45dd9c20-abe5-4780-897d-98cc4778626d",
+            "name": "Trinbago Knight Riders vs Barbados Royals, 16th Match",
+            "matchType": "t20",
+            "status": "Trinbago Knight Riders won by 7 wkts",
+            "venue": "Brian Lara Stadium, Tarouba, Trinidad",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T00:00:00",
+            "teams": [
+                "Trinbago Knight Riders",
+                "Barbados Royals"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Barbados Royals",
+                    "shortname": "BR",
+                    "img": "https://g.cricapi.com/iapi/114-637959253434216362.webp?w=48"
+                },
+                {
+                    "name": "Trinbago Knight Riders",
+                    "shortname": "TKR",
+                    "img": "https://g.cricapi.com/iapi/293-637932465560269082.png?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 178,
+                    "w": 6,
+                    "o": 20,
+                    "inning": "Barbados Royals Inning 1"
+                },
+                {
+                    "r": 179,
+                    "w": 3,
+                    "o": 17.5,
+                    "inning": "Trinbago Knight Riders Inning 1"
+                }
+            ],
+            "series_id": "d83eabfc-d381-4ea2-aa1d-9765506bdd9d",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "d6be8488-e124-4e45-9735-39c2df32ea62",
+            "name": "Trent Rockets vs Northern Superchargers, Eliminator",
+            "matchType": "t20",
+            "status": "No result due to rain",
+            "venue": "Kennington Oval, London",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T17:00:00",
+            "teams": [
+                "Trent Rockets",
+                "Northern Superchargers"
+            ],
+            "teamInfo": [
+                {
+                    "name": "Northern Superchargers",
+                    "shortname": "NS",
+                    "img": "https://g.cricapi.com/iapi/233-637885742880332307.webp?w=48"
+                },
+                {
+                    "name": "Trent Rockets",
+                    "shortname": "TRE",
+                    "img": "https://g.cricapi.com/iapi/292-637885742365093855.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 119,
+                    "w": 5,
+                    "o": 75,
+                    "inning": "Northern Superchargers Inning 1"
+                },
+                {
+                    "r": 12,
+                    "w": 0,
+                    "o": 5,
+                    "inning": "Trent Rockets Inning 1"
+                }
+            ],
+            "series_id": "d93bf50f-b2ce-4290-b74f-daf9a8c80a80",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        },
+        {
+            "id": "295e3ead-d6c3-42dc-a7cb-781033af3a1c",
+            "name": "Northern Superchargers Women vs London Spirit Women, Eliminator",
+            "matchType": "t20",
+            "status": "Northern Superchargers Women won by 42 runs",
+            "venue": "Kennington Oval, London",
+            "date": "2025-08-30",
+            "dateTimeGMT": "2025-08-30T13:15:00",
+            "teams": [
+                "Northern Superchargers Women",
+                "London Spirit Women"
+            ],
+            "teamInfo": [
+                {
+                    "name": "London Spirit Women",
+                    "shortname": "LSW",
+                    "img": "https://g.cricapi.com/iapi/2012-637967615150875023.webp?w=48"
+                },
+                {
+                    "name": "Northern Superchargers Women",
+                    "shortname": "NSW",
+                    "img": "https://g.cricapi.com/iapi/2013-637967615022705017.webp?w=48"
+                }
+            ],
+            "score": [
+                {
+                    "r": 214,
+                    "w": 5,
+                    "o": 100,
+                    "inning": "Northern Superchargers Women Inning 1"
+                },
+                {
+                    "r": 172,
+                    "w": 9,
+                    "o": 100,
+                    "inning": "London Spirit Women Inning 1"
+                }
+            ],
+            "series_id": "9e97eb69-ee99-422b-b413-e54e4d43f8c7",
+            "fantasyEnabled": true,
+            "bbbEnabled": true,
+            "hasSquad": true,
+            "matchStarted": true,
+            "matchEnded": true
+        }
+    ],
+    "status": "success",
+    "info": {
+        "hitsToday": 4,
+        "hitsUsed": 1,
+        "hitsLimit": 100,
+        "credits": 0,
+        "server": 20,
+        "offsetRows": 0,
+        "totalRows": 26,
+        "queryTime": 48.3945,
+        "s": 0,
+        "cache": 0
+    }
+}

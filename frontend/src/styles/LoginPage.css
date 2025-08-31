@@ -1,81 +1,78 @@
-/* src/styles/LoginPage.css */
-.login-container {
+/* src/components/Login.css */
+
+/* General reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Arial', sans-serif;
+}
+
+.login-body {
+  background: #fff;
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #d8dfed 0%, #c0dcf4 100%); /* Green gradient background */
-  background-size: cover;
-  padding: 20px;
-}
-
-.user-icon {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #dadbf3; /* Dark green for icon background */
-  border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  color: white;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1;
+  height: 100vh;
 }
 
-.login-form {
-  background: rgba(255, 255, 255, 0.2); /* Glass effect */
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: 30px;
-  width: 100%;
-  max-width: 400px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  position: relative;
-  z-index: 2;
+.container {
+  width: 350px;
+  padding: 30px 20px;
+  background: #fff;
+  border-radius: 30px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  text-align: center;
 }
-
-.login-form .MuiTypography-h5 {
-  color: #2314e9;
-  margin-bottom: 20px;
+.primary-color{
+  color: #1E56F7;
 }
 
 .input-field {
-  background-color: rgba(255, 255, 255, 0.8);
-  border-radius: 5px;
+  width: 100%;
+  padding: 12px 15px;
+  margin: 10px 0;
+  border: none;
+  border-radius: 25px;
+  background: #f2f2f2;
+  font-size: 14px;
+  outline: none;
 }
 
-.login-form .MuiInputBase-root {
-  border-radius: 5px !important;
+.error-message {
+  color: red;
+  font-size: 12px;
+  text-align: left;
+  margin: -8px 0 10px 15px;
 }
 
-.login-form .MuiOutlinedInput-notchedOutline {
-  border-color: transparent !important;
+.forgot {
+  display: block;
+  margin: 10px 0 20px 0;
+  font-size: 12px;
+  color: gray;
+  text-decoration: none;
 }
 
-.checkbox {
-  color: #ffffff;
-}
-
-.forgot-password {
-  color: #bbdefb;
-  text-decoration: underline;
+.btn {
+  width: 100%;
+  padding: 14px;
+  background: #1E56F7;
+  border: none;
+  border-radius: 25px;
+  color: white;
+  font-size: 16px;
   cursor: pointer;
+  margin-bottom: 15px;
+  transition: background 0.3s ease;
 }
 
-.login-button {
-  margin-top: 20px;
-  background-color: #1c89ea !important; /* Dark green button */
-  color: white !important;
-  border-radius: 5px !important;
-  padding: 10px !important;
-  font-weight: bold !important;
+.btn:hover {
+  background: #1543b4;
 }
 
-.login-button:hover {
-  background-color: #7f6bf0 !important; /* Darker green on hover */
+.register {
+  font-size: 14px;
+  color: #1E56F7;
+  text-decoration: none;
 }
