@@ -35,6 +35,9 @@ function PrimaryAppBar() {
     setAnchorEl(null);
     setMobileMoreAnchorEl(null);
   };
+  const handleUserManagement = () => {
+    navigate("/user-management");
+  };
 
   const handleLogout = async () => {
     const token = localStorage.getItem('refresh_token');  // Assuming refresh_token is stored
@@ -72,6 +75,13 @@ function PrimaryAppBar() {
           <AccountCircle />
         </IconButton>
         My Profile
+      </MenuItem>
+      <Divider component="li" />
+      <MenuItem onClick={handleUserManagement}>
+        <IconButton size="small" color="inherit">
+          <AccountCircle />
+        </IconButton>
+        <p>User Management</p>
       </MenuItem>
       <Divider component="li" />
       <MenuItem
