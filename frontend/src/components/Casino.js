@@ -1,133 +1,80 @@
 import React from "react";
-import { Box, Grid, Typography, Button } from "@mui/material";
-import { keyframes } from "@mui/system";
-import { useNavigate } from "react-router-dom"; // ✅ for navigation
-
-// Animation for continuous scrolling text
-const scroll = keyframes`
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
-`;
+import { Box, Grid, Container } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import BackToMainMenuButton from "./common_components/BackToMenuBtn";
+import SectionHeader from "./common_components/PageTitle";
 
 function Casino() {
+  const navigate = useNavigate();
 
-const navigate = useNavigate();
+  const games = [
+    { src: "frontend_assets/Casino_images/casino_img1.jpg", title: "Andar Bahar" },
+    { src: "frontend_assets/Casino_images/casino_img2.jpg", title: "3 Patti", onClick: () => navigate("/teen-play") },
+    { src: "frontend_assets/Casino_images/casino_img3.jpg", title: "Dragon Tiger" },
+    { src: "frontend_assets/Casino_images/casino_img4.jpg", title: "Teen Patti 1 Day" },
+    { src: "frontend_assets/Casino_images/casino_img5.jpg", title: "Lucky 7" },
+    { src: "frontend_assets/Casino_images/casino_img6.png", title: "Aviator" },
+  ];
 
   return (
-    <div>
-      {/* Scrolling Text Bar */}
-      <Box
-        sx={{
-          width: "100%",
-          overflow: "hidden",
-          whiteSpace: "nowrap",
-          bgcolor: "#47ff00", // background color
-          color: "white !important",
-          mt: 1,
-        }}
-      >
-        <Typography
-          component="div"
-          sx={{
-            display: "inline-block",
-            px: 2,
-            animation: `${scroll} 20s linear infinite`,
-            fontWeight: 500,
-            fontSize: { xs: "12px", sm: "16px" },
-            "&:hover": {
-              animationPlayState: "paused", // pause when hovered
-            },
-          }}
-        >
-          🚀 Ground commentary ki bet delete hongi har match m..Kalyan, Gali, Disawer Matka chalu h
-        </Typography>
-      </Box>
-      {/* Live Casino Header */}
-      <Box
-        sx={{
-          bgcolor: "#e30909",
-          color: "#fff",
-          textAlign: "center",
-          mt: 2,
-          mx: 2,
-          borderRadius: "2px",
-          fontWeight: 400,
-          fontSize: "16px",
-        }}
-      >
-        Live Casino
+    <Container
+      maxWidth="lg"
+      sx={{
+        py: 3,
+      }}
+    >
+      {/* Header inside same Container for equal padding */}
+      <Box sx={{ mb: 3 }}>
+        <SectionHeader title="Live Casino" />
       </Box>
 
-      {/* Game Images Grid */}
+      {/* Games Grid */}
       <Grid
         container
-        spacing={4}
-        justifyContent="center"
-        sx={{ mt: 1, px: 2 }}
+        spacing={{ xs: 2, sm: 3, md: 4 }}
+        justifyContent="flex-start"
+        alignItems="center"
       >
-        {[
-          { src: "frontend_assets/Casino_images/casino_img1.jpg" },
-          { src: "frontend_assets/Casino_images/casino_img2.jpg", onClick: () => navigate("/teen-play") },
-          { src: "frontend_assets/Casino_images/casino_img3.jpg" },
-          { src: "frontend_assets/Casino_images/casino_img4.jpg"},
-          { src: "frontend_assets/Casino_images/casino_img5.jpg" },
-          { src: "frontend_assets/Casino_images/casino_img6.png" },
-        ].map((game, index) => (
+        {games.map((game, index) => (
           <Grid
             item
             key={index}
             xs={6}
+            sm={4}
             md={2}
-            sx={{ textAlign: "center" }}
+            sx={{
+              textAlign: "center",
+              display: "flex",
+              justifyContent: "center",
+            }}
           >
-            <a href={game.link} style={{ textDecoration: "none" }}>
-              <Box
-                component="img"
-                src={game.src}
-                alt="game"
-                sx={{
-                  width:{ xs: "120px", sm: "170px" },
-                  height: "90px",
-                  borderRadius: 1,
-                  mb: 1,
-                  boxShadow: 2,
-                  transition: "transform 0.3s",
-                  "&:hover": { transform: "scale(1.05)" },
-                  cursor: "pointer"
-                }}
-                onClick={game.onClick}
-                
-              />
-            </a>
+            <Box
+              component="img"
+              src={game.src}
+              alt={game.title}
+              sx={{
+                width: { xs: "120px", sm: "160px", md: "180px" },
+                height: { xs: "90px", sm: "110px", md: "120px" },
+                borderRadius: "8px",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+                transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                "&:hover": {
+                  transform: "scale(1.07)",
+                  boxShadow: "0 6px 14px rgba(0,0,0,0.25)",
+                },
+                cursor: "pointer",
+              }}
+              onClick={game.onClick}
+            />
           </Grid>
         ))}
       </Grid>
 
-      {/* Back to Main Menu Button */}
-      <Box
-        sx={{
-          textAlign: "center",
-          mt: 3,
-        }}
-      >
-        <Button
-          variant="contained"
-          className="main-menu-btn"
-          sx={{
-            color: "white",
-            fontWeight: "bold",
-            px: 4,
-            py: 1,
-            borderRadius: "4px"
-          }}
-          onClick={() => {
-                navigate("/home");
-            }}
-        >
-          BACK TO MAIN MENU
-        </Button>
+      {/* Back Button */}
+      <Box sx={{ textAlign: "center", mt: 5 }}>
+        <BackToMainMenuButton />
       </Box>
-    </div>
+    </Container>
   );
 }
 

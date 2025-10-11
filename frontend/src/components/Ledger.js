@@ -15,6 +15,7 @@ import {
   FormControl,
   InputLabel,
 } from "@mui/material";
+import BackToMainMenuButton from "./common_components/BackToMenuBtn";
 
 const Ledger = () => {
   const [records, setRecords] = useState([]);
@@ -180,6 +181,7 @@ const Ledger = () => {
           Please select a user to view their ledger.
         </Typography>
       )}
+      <BackToMainMenuButton />
     </Box>
   );
 };

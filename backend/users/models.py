@@ -31,7 +31,6 @@ class UserManager(TreeManager, BaseUserManager):
     def get_by_natural_key(self, username):
         return self.get(username=username)
 
-
 class User(AbstractUser, MPTTModel):
     ROLE_CHOICES = (
         ("admin", "Admin"),
@@ -50,6 +49,9 @@ class User(AbstractUser, MPTTModel):
         blank=True,
         related_name="created_users",
     )
+
+    # ✅ NEW FIELD — unique chip code like CL6915
+    chip_code = models.CharField(max_length=10, unique=True, blank=True, null=True)
 
     objects = UserManager()
 

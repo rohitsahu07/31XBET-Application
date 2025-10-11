@@ -17,6 +17,8 @@ import {
   MenuItem,
   InputLabel,
 } from "@mui/material";
+import BackToMainMenuButton from "./common_components/BackToMenuBtn";
+import SectionHeader from "./common_components/PageTitle";
 
 const Statement = () => {
   const [rows, setRows] = useState([]);
@@ -82,22 +84,7 @@ const Statement = () => {
         p: 2,
       }}
     >
-      {/* Title bar */}
-      <Box
-        sx={{
-          backgroundColor: "#c62828",
-          color: "white",
-          textAlign: "center",
-          fontWeight: "bold",
-          p: 1.5,
-          borderRadius: "5px",
-          fontSize: "1.1rem",
-          mb: 2,
-          textTransform: "uppercase",
-        }}
-      >
-        My Account Statement
-      </Box>
+       <SectionHeader title="My Account Statement" />
 
       {/* Admin user dropdown */}
       {isAdmin && (
@@ -226,27 +213,7 @@ const Statement = () => {
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* Back button (to match visual style) */}
-      <Box sx={{ textAlign: "center", mt: 3 }}>
-        <Box
-          component="button"
-          onClick={() => window.history.back()}
-          sx={{
-            backgroundColor: "#004d40",
-            color: "white",
-            fontWeight: "bold",
-            border: "none",
-            px: 3,
-            py: 1.2,
-            borderRadius: "4px",
-            cursor: "pointer",
-            "&:hover": { backgroundColor: "#00695c" },
-          }}
-        >
-          BACK TO MAIN MENU
-        </Box>
-      </Box>
+      <BackToMainMenuButton />
     </Box>
   );
 };

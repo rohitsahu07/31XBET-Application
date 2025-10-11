@@ -1,45 +1,39 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
-  Paper,
+  Button,
   Table,
+  TableBody,
+  TableCell,
+  TableContainer,
   TableHead,
   TableRow,
-  TableCell,
-  TableBody,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  Paper,
+  IconButton,
+  Menu,
+  MenuItem,
 } from "@mui/material";
-import axios from "../services/api";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { FaUsers } from "react-icons/fa";
+import Swal from "sweetalert2";
+import api from "../services/api";
 
-const Usermanagement = () => {
+function Usermanagement() {
   const [users, setUsers] = useState([]);
-  const [openAddUser, setOpenAddUser] = useState(false);
-  const [openCoinDialog, setOpenCoinDialog] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [amount, setAmount] = useState("");
-  const [formData, setFormData] = useState({ username: "", password: "", initial_balance: "" });
-  const [adminBalance, setAdminBalance] = useState(0);
+  const navigate = useNavigate();
+  const open = Boolean(anchorEl);
 
+  // Fetch users
   const fetchUsers = async () => {
     try {
-      const res = await axios.get("/api/users/");
-      const data = res.data;
-
-      // Filter out admin/superusers
-      const filteredUsers = data.filter((u) => !u.is_superuser);
-      setUsers(filteredUsers);
-      const me = res.data.find(
-        (u) => u.username === localStorage.getItem("username")
-      );
-      if (me) setAdminBalance(me.balance);
+      const res = await api.get("/api/users/");
+      setUsers(res.data);
     } catch (err) {
-      console.error("Error fetching users", err);
+      console.error("Error fetching users:", err);
     }
   };
 
@@ -47,165 +41,267 @@ const Usermanagement = () => {
     fetchUsers();
   }, []);
 
-  const handleCreateUser = async () => {
+  // Menu control
+  const handleMenuOpen = (event, user) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedUser(user);
+  };
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedUser(null);
+  };
+
+  // ✅ Add User (with username, password, and coins + copy button)
+  const handleAddUser = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: "Create New User",
+      html: `
+        <input id="swal-username" class="swal2-input" placeholder="Username" />
+        <input id="swal-password" class="swal2-input" placeholder="Password (optional)" />
+        <input id="swal-balance" type="number" class="swal2-input" placeholder="Initial Coins" />
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: "Create",
+      background: "#1E1E1E",
+      color: "#fff",
+      preConfirm: () => ({
+        username: document.getElementById("swal-username").value,
+        password: document.getElementById("swal-password").value,
+        balance: document.getElementById("swal-balance").value,
+      }),
+    });
+
+    if (!formValues?.username) return;
+
     try {
-      await axios.post("/api/users/", {
-        username: formData.username,
-        password: formData.password,
-        role: "client",
-        initial_balance: formData.initial_balance, // ✅ Added
+      const res = await api.post("/api/users/", formValues);
+      const details = res.data.login_details;
+
+      // Text to copy
+      const copyText = `Dear Client, your login details are:\n\nURL: ${details.url}\nChip ID: ${details.chip_code}\nUsername: ${details.username}\nPassword: ${details.password}`;
+
+      await Swal.fire({
+        title: "User Created Successfully 🎉",
+        html: `
+          <div style="text-align:left; line-height:1.6">
+            <b>Dear Client, your login details are:</b><br/><br/>
+            <b>URL:</b> ${details.url}<br/>
+            <b>User ID:</b> ${details.username}<br/>
+            <b>Password:</b> ${details.password}<br/><br/>
+            <button id="copyDetailsBtn" class="swal2-confirm swal2-styled" style="background-color:#3b82f6;">Copy Details</button>
+          </div>
+        `,
+        showConfirmButton: false,
+        background: "#1E1E1E",
+        color: "#fff",
+        didOpen: () => {
+          document.getElementById("copyDetailsBtn").onclick = () => {
+            navigator.clipboard.writeText(copyText);
+            Swal.fire("Copied!", "User details copied to clipboard", "success");
+          };
+        },
       });
-      setOpenAddUser(false);
-      setFormData({ username: "", password: "", initial_balance: "" });
+
       fetchUsers();
     } catch (err) {
-      console.error("Error creating user", err);
+      console.error("Error creating user:", err);
+      Swal.fire("Error", "Failed to create user", "error");
     }
   };
 
-  const handleGrantCoins = async () => {
+  // Deposit
+  const handleDeposit = async () => {
+    const { value: amount } = await Swal.fire({
+      title: "Deposit Coins",
+      input: "number",
+      inputPlaceholder: "Enter amount",
+      showCancelButton: true,
+      confirmButtonText: "Deposit",
+      background: "#1E1E1E",
+      color: "#fff",
+    });
+
+    if (!amount) return;
+
     try {
-      await axios.post("/api/users/grant_coins/", {
-        user_id: selectedUser.id,
-        amount,
-      });
-      setOpenCoinDialog(false);
-      setAmount("");
+      await api.post(`/api/users/${selectedUser.id}/deposit/`, { amount });
+      Swal.fire("Success", `₹${amount} added successfully`, "success");
       fetchUsers();
     } catch (err) {
-      console.error("Error granting coins", err);
+      console.error("Deposit error:", err);
+      Swal.fire("Error", "Failed to deposit coins", "error");
     }
+    handleMenuClose();
   };
 
-  const handleDeleteUser = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
+  // Withdraw
+  const handleWithdraw = async () => {
+    const { value: amount } = await Swal.fire({
+      title: "Withdraw Coins",
+      input: "number",
+      inputPlaceholder: "Enter amount",
+      showCancelButton: true,
+      confirmButtonText: "Withdraw",
+      background: "#1E1E1E",
+      color: "#fff",
+    });
+
+    if (!amount) return;
+
     try {
-      await axios.delete(`/api/users/${id}/`);
+      const res = await api.post(`/api/users/${selectedUser.id}/withdraw/`, { amount });
+      Swal.fire("Success", res.data.message, "success");
       fetchUsers();
     } catch (err) {
-      console.error("Error deleting user", err);
+      console.error("Withdraw error:", err);
+      Swal.fire("Error", err.response?.data?.error || "Failed to withdraw", "error");
     }
+    handleMenuClose();
+  };
+
+  // ✅ Reset Password (with Copy button)
+  const handleResetPassword = async () => {
+    try {
+      const res = await api.post(`/api/users/${selectedUser.id}/reset_password/`);
+      const newPassword = res.data.new_password;
+
+      Swal.fire({
+        title: "Password Reset",
+        html: `
+          <div style="font-size:16px;">
+            <b>New Password:</b> <span id="pw">${newPassword}</span><br/><br/>
+            <button id="copyBtn" class="swal2-confirm swal2-styled" style="background-color:#3b82f6;">Copy Password</button>
+          </div>
+        `,
+        showConfirmButton: false,
+        background: "#1E1E1E",
+        color: "#fff",
+        didOpen: () => {
+          document.getElementById("copyBtn").onclick = () => {
+            navigator.clipboard.writeText(newPassword);
+            Swal.fire("Copied!", "Password copied to clipboard", "success");
+          };
+        },
+      });
+    } catch (err) {
+      console.error("Reset error:", err);
+      Swal.fire("Error", "Failed to reset password", "error");
+    }
+    handleMenuClose();
+  };
+
+  // Edit Profile
+  const handleEditProfile = async () => {
+    const { value: username } = await Swal.fire({
+      title: "Edit Username",
+      input: "text",
+      inputPlaceholder: "Enter new name",
+      showCancelButton: true,
+      confirmButtonText: "Save",
+      background: "#1E1E1E",
+      color: "#fff",
+    });
+
+    if (!username) return;
+
+    try {
+      const res = await api.post(`/api/users/${selectedUser.id}/edit_name/`, { username });
+      Swal.fire("Updated", res.data.message, "success");
+      fetchUsers();
+    } catch (err) {
+      console.error("Edit name error:", err);
+      Swal.fire("Error", "Failed to update name", "error");
+    }
+    handleMenuClose();
+  };
+
+  // Statement
+  const handleStatement = () => {
+    handleMenuClose();
+    navigate("/statement");
   };
 
   return (
-    <Box p={3}>
-      <Typography variant="h4" gutterBottom>
-        👥 User Management
-      </Typography>
-      <Typography variant="h6" gutterBottom>
-      </Typography>
+    <Box sx={{ padding: 3 }}>
+      {/* Header */}
+      <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+        <FaUsers size={28} style={{ marginRight: "10px", color: "#9b5de5" }} />
+        <Typography variant="h5" sx={{ fontWeight: "bold", color: "#fff" }}>
+          User Management
+        </Typography>
+      </Box>
 
+      {/* Add User Button */}
       <Button
         variant="contained"
-        color="primary"
-        onClick={() => setOpenAddUser(true)}
-        sx={{ mb: 2 }}
+        sx={{
+          backgroundColor: "#16a34a",
+          "&:hover": { backgroundColor: "#15803d" },
+          mb: 2,
+        }}
+        onClick={handleAddUser}
       >
         + Add User
       </Button>
 
-      <Paper elevation={3}>
+      {/* Table */}
+      <TableContainer
+        component={Paper}
+        sx={{
+          backgroundColor: "#121212",
+          color: "#fff",
+          borderRadius: 2,
+        }}
+      >
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Username</TableCell>
-              <TableCell>Balance</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell sx={{ color: "#a3e635", fontWeight: "bold" }}>Username</TableCell>
+              <TableCell sx={{ color: "#a3e635", fontWeight: "bold" }}>Balance</TableCell>
+              <TableCell sx={{ color: "#a3e635", fontWeight: "bold" }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell>{u.username}</TableCell>
-                <TableCell>₹{u.balance}</TableCell>
+            {users.map((user) => (
+              <TableRow key={user.id} hover>
+                <TableCell sx={{ color: "#fff" }}>{user.username}</TableCell>
+                <TableCell sx={{ color: "#fff" }}>₹{parseFloat(user.balance).toFixed(2)}</TableCell>
                 <TableCell>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    sx={{ mr: 1 }}
-                    onClick={() => {
-                      setSelectedUser(u);
-                      setOpenCoinDialog(true);
-                    }}
-                  >
-                    Add Coins
-                  </Button>
-                  {!u.is_superuser && (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => handleDeleteUser(u.id)}
-                    >
-                      Delete
-                    </Button>
-                  )}
+                  <IconButton color="inherit" onClick={(e) => handleMenuOpen(e, user)}>
+                    <MoreVertIcon sx={{ color: "#a3a3a3" }} />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
-      </Paper>
+      </TableContainer>
 
-      {/* Add User Dialog */}
-      <Dialog open={openAddUser} onClose={() => setOpenAddUser(false)}>
-        <DialogTitle>Create New User</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Username"
-            fullWidth
-            margin="normal"
-            value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            fullWidth
-            margin="normal"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          />
-          <TextField
-            label="Initial Coins"
-            type="number"
-            fullWidth
-            margin="normal"
-            value={formData.initial_balance}
-            onChange={(e) => setFormData({ ...formData, initial_balance: e.target.value })}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenAddUser(false)}>Cancel</Button>
-          <Button onClick={handleCreateUser} variant="contained">
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Add Coins Dialog */}
-      <Dialog open={openCoinDialog} onClose={() => setOpenCoinDialog(false)}>
-        <DialogTitle>
-          Grant Coins to {selectedUser?.username || ""}
-        </DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Amount"
-            type="number"
-            fullWidth
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCoinDialog(false)}>Cancel</Button>
-          <Button onClick={handleGrantCoins} variant="contained">
-            Grant
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Dropdown Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleMenuClose}
+        PaperProps={{
+          elevation: 6,
+          sx: {
+            backgroundColor: "#1E1E1E",
+            color: "#fff",
+            borderRadius: 1,
+            minWidth: 160,
+            paddingY: 0.5,
+          },
+        }}
+      >
+        <MenuItem onClick={handleDeposit}>Deposit</MenuItem>
+        <MenuItem onClick={handleWithdraw}>Withdraw</MenuItem>
+        <MenuItem onClick={handleResetPassword}>Reset Password</MenuItem>
+        <MenuItem onClick={handleStatement}>Statement</MenuItem>
+        <MenuItem onClick={handleEditProfile}>Edit Profile</MenuItem>
+      </Menu>
     </Box>
   );
-};
+}
 
 export default Usermanagement;

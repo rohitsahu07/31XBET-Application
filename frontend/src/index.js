@@ -9,14 +9,34 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 const theme = createTheme({
   palette: {
-    primary: { main: '#1976d2' },  // Blue for buttons/links
-    secondary: { main: '#4caf50' },  // Green for betting actions
-    background: { default: '#f5f5f5' },  // Light gray background
+    primary: { main: "#00A86B" }, // Green tone
+    secondary: { main: "#C62828" },
+    background: { default: "#F9FAFB", paper: "#FFFFFF" },
+    text: { primary: "#0A0A0A", secondary: "#555555" },
   },
   typography: {
-    fontFamily: 'Roboto, sans-serif',
+    fontFamily: "Roboto, sans-serif",
+    h1: { fontSize: "2rem", fontWeight: 600 },
+    h2: { fontSize: "1.5rem", fontWeight: 500 },
+    body1: { fontSize: "1rem" },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: { borderRadius: "8px", textTransform: "none", fontWeight: 600 },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+          borderRadius: "12px",
+        },
+      },
+    },
   },
 });
+
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
