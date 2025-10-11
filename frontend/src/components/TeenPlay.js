@@ -1,4 +1,3 @@
-// frontend/src/components/TeenPlay.jsx
 import React, { useEffect, useState } from "react";
 import {
   Box,
@@ -14,104 +13,100 @@ import {
   TableRow,
   Paper,
 } from "@mui/material";
+import axios from "../services/api";
 import BackToMainMenuButton from "./common_components/BackToMenuBtn";
 import CountdownTimer from "./common_components/CountdownTimer";
-import axios from "../services/api";
 
 function TeenPlay() {
-  // -----------------------------
-  // State
-  // -----------------------------
-  const [lastResults, setLastResults] = useState(["B", "B", "A", "A", "B", "A"]);
-  const [matchBets, setMatchBets] = useState([]);
-  const [oddsData, setOddsData] = useState([
-    { player: "Player A", rate: "0.96" },
-    { player: "Player B", rate: "0.96" },
-  ]);
-
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [selectedBackType, setSelectedBackType] = useState("Back");
-  const [amount, setAmount] = useState("");
-  const [timerPhase, setTimerPhase] = useState("long");
+  // ==============================
+  // STATE VARIABLES
+  // ==============================
   const [roundData, setRoundData] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [timerPhase, setTimerPhase] = useState("long");
+  const [lastResults, setLastResults] = useState([]);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [matchBets, setMatchBets] = useState([]);
 
-  // -----------------------------
-  // Fetch Current Round (every 1s)
-  // -----------------------------
+  // ==============================
+  // FETCH GAME DATA EVERY SECOND
+  // ==============================
   useEffect(() => {
-    const fetchRound = async () => {
+    const fetchRoundData = async () => {
       try {
         const res = await axios.get("/api/bets/current-round/");
         setRoundData(res.data);
+        setLastResults((prev) => {
+          const newResult = res.data.result;
+          if (newResult && newResult !== prev[prev.length - 1]) {
+            const updated = [...prev, newResult].slice(-10);
+            return updated;
+          }
+          return prev;
+        });
       } catch (err) {
-        console.error("Error fetching round:", err);
+        console.error("Error fetching game round:", err);
       }
     };
 
-    fetchRound();
-    const interval = setInterval(fetchRound, 1000);
+    fetchRoundData();
+    const interval = setInterval(fetchRoundData, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // -----------------------------
-  // Handle Bet Placement
-  // -----------------------------
+  // ==============================
+  // HANDLE BET SUBMISSION
+  // ==============================
   const handlePlaceBet = async () => {
-    if (!selectedPlayer) {
-      alert("Please select a player!");
-      return;
-    }
-    if (!amount || parseFloat(amount) <= 0) {
-      alert("Enter a valid amount!");
+    if (!selectedPlayer || !amount) {
+      alert("Please select a player and enter amount!");
       return;
     }
 
-    setLoading(true);
     try {
-      const res = await axios.post("/api/bets/place-bet/", {
-        player: selectedPlayer === "Player A" ? "A" : "B",
+      await axios.post("/api/place-bet/", {
+        round_id: roundData.round_id,
+        player: selectedPlayer,
         amount: parseFloat(amount),
-        back: selectedBackType,
       });
 
-      alert(res.data.message);
       setMatchBets((prev) => [
         ...prev,
         {
-          team: selectedPlayer,
+          team: selectedPlayer === "A" ? "Player A" : "Player B",
           rate: "0.96",
           amount,
-          mode: selectedBackType,
+          mode: "Back",
         },
       ]);
+
       setAmount("");
       setSelectedPlayer(null);
+      alert("✅ Bet placed successfully!");
     } catch (err) {
-      console.error("Bet placement error:", err);
-      alert(
-        err.response?.data?.error ||
-          "Something went wrong placing your bet."
-      );
-    } finally {
-      setLoading(false);
+      console.error("Error placing bet:", err);
+      alert("❌ Failed to place bet. Try again!");
     }
   };
 
-  // -----------------------------
-  // JSX
-  // -----------------------------
+  // ==============================
+  // STYLES
+  // ==============================
+  const backButtonStyle = (isSelected) => ({
+    bgcolor: isSelected ? "#0288d1" : "#64b5f6",
+    color: "white",
+    fontWeight: "bold",
+    cursor: "pointer",
+    "&:hover": { bgcolor: "#42a5f5" },
+    transition: "0.2s",
+  });
+
+  // ==============================
+  // RENDER COMPONENT
+  // ==============================
   return (
-    <Box
-      sx={{
-        width: "100%",
-        maxWidth: 1200,
-        mx: "auto",
-      }}
-    >
-      {/* ========================== */}
+    <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto" }}>
       {/* HEADER */}
-      {/* ========================== */}
       <Box
         sx={{
           background: "linear-gradient(to right, #004d40, #00796b)",
@@ -129,13 +124,11 @@ function TeenPlay() {
           Teen Patti 20-20
         </Typography>
         <Typography variant="subtitle2">
-          Round ID: <b>{roundData?.round_id || "Loading..."}</b>
+          Round ID: <b>{roundData.round_id || "Loading..."}</b>
         </Typography>
       </Box>
 
-      {/* ========================== */}
-      {/* GAME DISPLAY AREA */}
-      {/* ========================== */}
+      {/* GAME AREA */}
       <Box
         sx={{
           position: "relative",
@@ -144,34 +137,7 @@ function TeenPlay() {
           overflow: "hidden",
         }}
       >
-        {/* Loading Indicator */}
-        {!roundData.round_id && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            <Box
-              sx={{
-                border: "4px solid rgba(255, 255, 255, 0.2)",
-                borderTop: "4px solid white",
-                borderRadius: "50%",
-                width: 40,
-                height: 40,
-                animation: "spin 1s linear infinite",
-                "@keyframes spin": {
-                  "0%": { transform: "rotate(0deg)" },
-                  "100%": { transform: "rotate(360deg)" },
-                },
-              }}
-            />
-          </Box>
-        )}
-
-        {/* Player Cards */}
+        {/* PLAYER & TIMER SECTION */}
         <Box
           sx={{
             position: "absolute",
@@ -188,40 +154,25 @@ function TeenPlay() {
           }}
         >
           {/* Player A */}
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 1,
-              border:
-                selectedPlayer === "Player A"
-                  ? "2px solid #4caf50"
-                  : "2px solid transparent",
-              borderRadius: "8px",
-              p: 1,
-            }}
-            onClick={() => setSelectedPlayer("Player A")}
-          >
+          <Box sx={{ textAlign: "center" }}>
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
               Player A
             </Typography>
-            <Box sx={{ display: "flex", gap: 0.5 }}>
-              <img
-                src="frontend_assets/Cards_images/flipped_card.png"
-                alt="Card"
-                width="45"
-              />
-              <img
-                src="frontend_assets/Cards_images/flipped_card.png"
-                alt="Card"
-                width="45"
-              />
-              <img
-                src="frontend_assets/Cards_images/flipped_card.png"
-                alt="Card"
-                width="45"
-              />
+            <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}>
+              {(
+                roundData.player_a_cards || [
+                  "flipped_card",
+                  "flipped_card",
+                  "flipped_card",
+                ]
+              ).map((card, i) => (
+                <img
+                  key={i}
+                  src={`frontend_assets/Cards_images/${card}.png`}
+                  alt="Card"
+                  width="45"
+                />
+              ))}
             </Box>
           </Box>
 
@@ -229,48 +180,123 @@ function TeenPlay() {
           <CountdownTimer onPhaseChange={(phase) => setTimerPhase(phase)} />
 
           {/* Player B */}
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 1,
-              border:
-                selectedPlayer === "Player B"
-                  ? "2px solid #4caf50"
-                  : "2px solid transparent",
-              borderRadius: "8px",
-              p: 1,
-            }}
-            onClick={() => setSelectedPlayer("Player B")}
-          >
+          <Box sx={{ textAlign: "center" }}>
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
               Player B
             </Typography>
-            <Box sx={{ display: "flex", gap: 0.5 }}>
-              <img
-                src="frontend_assets/Cards_images/flipped_card.png"
-                alt="Card"
-                width="45"
-              />
-              <img
-                src="frontend_assets/Cards_images/flipped_card.png"
-                alt="Card"
-                width="45"
-              />
-              <img
-                src="frontend_assets/Cards_images/flipped_card.png"
-                alt="Card"
-                width="45"
-              />
+            <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}>
+              {(
+                roundData.player_b_cards || [
+                  "flipped_card",
+                  "flipped_card",
+                  "flipped_card",
+                ]
+              ).map((card, i) => (
+                <img
+                  key={i}
+                  src={`frontend_assets/Cards_images/${card}.png`}
+                  alt="Card"
+                  width="45"
+                />
+              ))}
             </Box>
           </Box>
         </Box>
       </Box>
 
-      {/* ========================== */}
-      {/* BET ENTRY SECTION */}
-      {/* ========================== */}
+      {/* PLAYER ODDS SECTION (Now Clickable) */}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: "#b0b0b0" }}>
+              <TableCell
+                align="center"
+                sx={{
+                  color: "white",
+                  fontWeight: "bold",
+                  borderRight: "1px solid white",
+                }}
+              >
+                Players
+              </TableCell>
+              <TableCell
+                align="center"
+                sx={{
+                  bgcolor: "#64b5f6",
+                  color: "white",
+                  fontWeight: "bold",
+                }}
+              >
+                Back
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {["A", "B"].map((player) => (
+              <TableRow
+                key={player}
+                sx={{
+                  bgcolor: selectedPlayer === player ? "#9e9e9e" : "#bfbfbf",
+                }}
+              >
+                <TableCell
+                  align="center"
+                  sx={{
+                    color: "white",
+                    fontWeight: 600,
+                    borderRight: "1px solid white",
+                  }}
+                >
+                  Player {player}
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={backButtonStyle(selectedPlayer === player)}
+                  onClick={() => setSelectedPlayer(player)}
+                >
+                  <Typography sx={{ lineHeight: 1 }}>0.96</Typography>
+                  <Typography sx={{ lineHeight: 1 }}>0</Typography>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* LAST RESULT */}
+      <Box sx={{ bgcolor: "#004d40", color: "white", p: 1 }}>
+        <Typography sx={{ fontWeight: 600 }}>Last Result</Typography>
+      </Box>
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+          bgcolor: "#e0e0e0",
+          p: 1,
+        }}
+      >
+        {lastResults.map((res, i) => (
+          <Box
+            key={i}
+            sx={{
+              width: 26,
+              height: 26,
+              borderRadius: "50%",
+              bgcolor: res === "A" ? "green" : "red",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              mx: 0.5,
+            }}
+          >
+            {res}
+          </Box>
+        ))}
+      </Box>
+
+      {/* AMOUNT INPUT + DONE */}
       <Box sx={{ bgcolor: "#efebebff", py: 2, px: 2 }}>
         <Grid container spacing={1} alignItems="center">
           <Grid item xs={12} sm={3}>
@@ -278,7 +304,6 @@ function TeenPlay() {
           </Grid>
           <Grid item xs={12} sm={5}>
             <TextField
-              id="MatchAmount"
               type="number"
               size="small"
               fullWidth
@@ -291,42 +316,17 @@ function TeenPlay() {
             <Button
               variant="contained"
               color={timerPhase === "short" ? "error" : "success"}
-              id="cmdDone"
               fullWidth
               onClick={handlePlaceBet}
-              disabled={
-                !selectedPlayer || !amount || timerPhase === "short" || loading
-              }
+              disabled={!selectedPlayer || !amount || timerPhase === "short"}
             >
-              {timerPhase === "short" ? "BET CLOSED" : loading ? "..." : "DONE"}
+              {timerPhase === "short" ? "BET CLOSED" : "PLACE BET"}
             </Button>
           </Grid>
         </Grid>
-
-        {/* Back/Lay Buttons */}
-        <Box sx={{ mt: 2, display: "flex", gap: 2 }}>
-          <Button
-            variant={
-              selectedBackType === "Back" ? "contained" : "outlined"
-            }
-            color="success"
-            onClick={() => setSelectedBackType("Back")}
-          >
-            Back
-          </Button>
-          <Button
-            variant={selectedBackType === "Lay" ? "contained" : "outlined"}
-            color="error"
-            onClick={() => setSelectedBackType("Lay")}
-          >
-            Lay
-          </Button>
-        </Box>
       </Box>
 
-      {/* ========================== */}
       {/* MATCH BETS TABLE */}
-      {/* ========================== */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
