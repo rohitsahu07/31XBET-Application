@@ -1,87 +1,43 @@
-# backend/users/views.py (updated perform_create to set created_by)
-
-from rest_framework_simplejwt.views import TokenBlacklistView
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
-from .models import User
-from .serializers import UserSerializer, GrantCoinSerializer
-from ledger.models import Transaction
+from django.contrib.auth import get_user_model
+from .serializers import UserSerializer
 
-class UserPermission(IsAuthenticated):
-    def has_permission(self, request, view):
-        user = request.user
-        if request.method == 'GET':
-            return True
-        if view.action == 'create':
-            role = request.data.get('role')
-            if user.role == 'super_admin' and role == 'master_admin':
-                return True
-            if user.role == 'master_admin' and role == 'admin':
-                return True
-            if user.role == 'admin' and role == 'client':
-                return True
-        return False
+User = get_user_model()
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by('id')
     serializer_class = UserSerializer
-    permission_classes = [UserPermission]
 
-    def get_queryset(self):
-        return self.request.user.get_descendants(include_self=True)
+    def get_permissions(self):
+        if self.action in ['create']:
+            return [AllowAny()]  # allow registration
+        return [IsAuthenticated()]
 
-    def perform_create(self, serializer):
-        user = self.request.user
-        role = serializer.validated_data['role']
-        # Enforce hierarchy
-        if user.role == 'super_admin' and role == 'master_admin':
-            pass
-        elif user.role == 'master_admin' and role == 'admin':
-            pass
-        elif user.role == 'admin' and role == 'client':
-            pass
+    def list(self, request):
+        """
+        Return current user info if not superuser, or all users if admin.
+        """
+        user = request.user
+        if user.is_superuser:
+            queryset = User.objects.all()
         else:
-            raise serializers.ValidationError(f"{user.role} can only create {self.get_allowed_child_role(user.role)}")
-        serializer.save(parent=user, created_by=user)
+            queryset = User.objects.filter(id=user.id)
+        serializer = self.get_serializer(queryset, many=True)
+        print("📢 [UserViewSet] Returning user data:", serializer.data)
+        return Response(serializer.data)
 
-    def get_allowed_child_role(self, role):
-        if role == 'super_admin':
-            return 'master_admin'
-        if role == 'master_admin':
-            return 'admin'
-        if role == 'admin':
-            return 'client'
-        return None
-
-    @action(detail=False, methods=['post'])
-    def grant_coins(self, request):
-        serializer = GrantCoinSerializer(data=request.data)
+    def create(self, request):
+        """
+        Allow admin to create new user.
+        """
+        if not request.user.is_superuser:
+            return Response({"error": "Only admin can create users"}, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            with transaction.atomic():
-                to_user = User.objects.get(id=serializer.data['user_id'])
-                amount = serializer.data['amount']
-                if to_user.parent != request.user or request.user.balance < amount:
-                    return Response({'error': 'Invalid grant'}, status=status.HTTP_400_BAD_REQUEST)
-                request.user.balance -= amount
-                to_user.balance += amount
-                request.user.save()
-                to_user.save()
-                Transaction.objects.create(from_user=request.user, to_user=to_user, amount=amount, type='grant')
-            return Response({'success': 'Coins granted'})
+            serializer.save()
+            print("✅ [UserViewSet] Created new user:", serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        print("❌ [UserViewSet] Error creating user:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
-class LogoutView(TokenBlacklistView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        try:
-            refresh_token = request.data["refresh"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response("Successful Logout", status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
