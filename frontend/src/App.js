@@ -19,6 +19,7 @@ import RulesPage from './pages/RulesPage';
 import InplayPage from './pages/InplayPage';
 import CasinoPage from './pages/CasinoPage';
 import TeenPlayPage from './pages/TeenPlayPage';
+import UserManagementPage from './pages/UserManagementPage';
 
 // Custom component to conditionally render Header
 const AppContent = () => {
@@ -48,6 +49,7 @@ const AppContent = () => {
           <Route path="/inplay/matches" element={<InplayPage />} />
           <Route path="/casino" element={<CasinoPage />} />
           <Route path="/teen-play" element={<TeenPlayPage />} />
+          <Route path="/user-management" element={<UserManagementPage />} />
         </Routes>
       </Box>
     </>
@@ -58,7 +60,7 @@ const theme = createTheme({
   palette: {
     primary: { main: '#7C4DFF' },
     background: { default: '#FFFFFF', paper: '#F5F5F5' },
-    text: { primary: '#f8ededff', secondary: '#757575' },
+    text: { primary: '#080808ff', secondary: '#757575' },
   },
   typography: {
     fontFamily: 'Roboto, sans-serif',
