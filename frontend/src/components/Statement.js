@@ -1,0 +1,254 @@
+import React, { useEffect, useState } from "react";
+// If your axios helper is at src/services/api.js, change the next line to:
+// import axios from "../services/api";
+import axios from "../services/api";
+import {
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
+} from "@mui/material";
+
+const Statement = () => {
+  const [rows, setRows] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loadedAdminUsers, setLoadedAdminUsers] = useState(false);
+
+  // init: figure out if admin & load users list if so
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const res = await axios.get("/api/users/");
+        const list = Array.isArray(res.data) ? res.data : [];
+        // Backend returns all non-admin users for admin, otherwise just self
+        const admin = list.length > 1 || (list[0]?.is_superuser === true);
+        setIsAdmin(admin);
+        setUsers(list.filter(u => !u.is_superuser));
+        setLoadedAdminUsers(true);
+
+        // If NOT admin, fetch own statement immediately
+        if (!admin) {
+          await fetchStatement();
+        }
+      } catch (e) {
+        console.error("Error loading users:", e);
+        setLoadedAdminUsers(true);
+      }
+    };
+    init();
+  }, []);
+
+  const fetchStatement = async (userId = null) => {
+    try {
+      let url = "/api/ledger/statement/";
+      if (isAdmin && userId) url += `?user_id=${userId}`;
+      const token = localStorage.getItem("access_token");
+      const res = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRows(res.data || []);
+    } catch (err) {
+      console.error("Error fetching statement:", err);
+      setRows([]);
+    }
+  };
+
+  const handleUserChange = (e) => {
+    const userId = e.target.value;
+    setSelectedUser(userId);
+    if (userId) fetchStatement(userId);
+    else setRows([]);
+  };
+
+  const fmt = (v) =>
+    (v === null || v === undefined || v === "") ? "0.00" : Number(v).toFixed(2);
+
+  return (
+    <Box
+      sx={{
+        backgroundColor: "#e8e8e8",
+        minHeight: "100vh",
+        p: 2,
+      }}
+    >
+      {/* Title bar */}
+      <Box
+        sx={{
+          backgroundColor: "#c62828",
+          color: "white",
+          textAlign: "center",
+          fontWeight: "bold",
+          p: 1.5,
+          borderRadius: "5px",
+          fontSize: "1.1rem",
+          mb: 2,
+          textTransform: "uppercase",
+        }}
+      >
+        My Account Statement
+      </Box>
+
+      {/* Admin user dropdown */}
+      {isAdmin && (
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+          <FormControl sx={{ minWidth: 260 }}>
+            <InputLabel>Select User</InputLabel>
+            <Select
+              value={selectedUser}
+              label="Select User"
+              onChange={handleUserChange}
+              renderValue={(value) =>
+                value
+                  ? users.find((u) => u.id === value)?.username
+                  : "Select User"
+              }
+            >
+              <MenuItem value="">
+                <em>Select User</em>
+              </MenuItem>
+              {users.map((u) => (
+                <MenuItem key={u.id} value={u.id}>
+                  {u.username}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      )}
+
+      {/* Table */}
+      <TableContainer
+        component={Paper}
+        sx={{
+          borderRadius: "6px",
+          boxShadow: "0 3px 8px rgba(0,0,0,0.1)",
+          overflowX: "auto",
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow
+              sx={{
+                background: "linear-gradient(to right, #00332b, #004d40)",
+              }}
+            >
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                DATE
+              </TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                DESCRIPTION
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ color: "white", fontWeight: "bold" }}
+              >
+                Prev. Bal
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ color: "white", fontWeight: "bold" }}
+              >
+                CREDIT
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ color: "white", fontWeight: "bold" }}
+              >
+                DEBIT
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ color: "white", fontWeight: "bold" }}
+              >
+                BALANCE
+              </TableCell>
+            </TableRow>
+          </TableHead>
+
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
+                  {isAdmin
+                    ? loadedAdminUsers
+                      ? "Please select a user to view statement."
+                      : "Loading users…"
+                    : "No statement entries."}
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((r, i) => (
+                <TableRow
+                  key={i}
+                  sx={{
+                    backgroundColor: i % 2 === 0 ? "#f9f9f9" : "#ffffff",
+                    "&:hover": { backgroundColor: "#e6f7f3" },
+                  }}
+                >
+                  <TableCell>{r.date}</TableCell>
+                  <TableCell sx={{ color: "#004d80", fontWeight: 500 }}>
+                    {r.description}
+                  </TableCell>
+                  <TableCell align="right">{fmt(r.prev_balance)}</TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: Number(r.credit) > 0 ? "green" : "rgba(0,0,0,0.6)",
+                      fontWeight: Number(r.credit) > 0 ? "bold" : 400,
+                    }}
+                  >
+                    {fmt(r.credit)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: Number(r.debit) > 0 ? "red" : "rgba(0,0,0,0.6)",
+                      fontWeight: Number(r.debit) > 0 ? "bold" : 400,
+                    }}
+                  >
+                    {fmt(r.debit)}
+                  </TableCell>
+                  <TableCell align="right">{fmt(r.balance)}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Back button (to match visual style) */}
+      <Box sx={{ textAlign: "center", mt: 3 }}>
+        <Box
+          component="button"
+          onClick={() => window.history.back()}
+          sx={{
+            backgroundColor: "#004d40",
+            color: "white",
+            fontWeight: "bold",
+            border: "none",
+            px: 3,
+            py: 1.2,
+            borderRadius: "4px",
+            cursor: "pointer",
+            "&:hover": { backgroundColor: "#00695c" },
+          }}
+        >
+          BACK TO MAIN MENU
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+export default Statement;

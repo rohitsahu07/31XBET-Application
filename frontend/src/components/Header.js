@@ -1,4 +1,4 @@
-// src/components/Header.js
+// frontend/src/components/Header.js
 import React from "react";
 import {
   AppBar,
@@ -8,16 +8,16 @@ import {
   IconButton,
   MenuItem,
   Menu,
+  Divider,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import MoreIcon from "@mui/icons-material/MoreVert";
-import { useNavigate } from "react-router-dom"; // ✅ for navigation
+import LogoutIcon from "@mui/icons-material/Logout";
+import PersonIcon from "@mui/icons-material/Person";
 import { FaHome } from "react-icons/fa";
-import axios from "axios";
-import LogoutIcon from '@mui/icons-material/Logout';
-import Divider from '@mui/material/Divider';
-
+import { useNavigate } from "react-router-dom";
+import api from "../services/api"; // ✅ centralized axios instance
 
 function PrimaryAppBar() {
   const [anchorEl, setAnchorEl] = React.useState(null);
@@ -27,69 +27,91 @@ function PrimaryAppBar() {
   const isMenuOpen = Boolean(anchorEl);
   const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
 
+  // -----------------------------
   // Menu Handlers
+  // -----------------------------
   const handleProfileMenuOpen = (event) => setAnchorEl(event.currentTarget);
-  const handleMobileMenuOpen = (event) =>
-    setMobileMoreAnchorEl(event.currentTarget);
+  const handleMobileMenuOpen = (event) => setMobileMoreAnchorEl(event.currentTarget);
   const handleMenuClose = () => {
     setAnchorEl(null);
     setMobileMoreAnchorEl(null);
   };
+
+  // -----------------------------
+  // Navigation Actions
+  // -----------------------------
+  const handleProfile = () => {
+    handleMenuClose();
+    navigate("/profile");
+  };
+
   const handleUserManagement = () => {
+    handleMenuClose();
     navigate("/user-management");
   };
 
+  // -----------------------------
+  // Logout Handler (Full Backend Integration)
+  // -----------------------------
   const handleLogout = async () => {
-    const token = localStorage.getItem('refresh_token');  // Assuming refresh_token is stored
     try {
-      await axios.post('/api/users/logout/', { refresh: token }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` }
-      });
-      localStorage.clear();
-      navigate('/');
-    } catch (err) {
-      console.error('Logout failed', err);
-      localStorage.clear();
-      navigate('/');
+      const refresh = localStorage.getItem("refresh");
+      const access = localStorage.getItem("access");
+
+      if (!refresh || !access) {
+        console.warn("No tokens found, redirecting to login");
+        localStorage.clear();
+        navigate("/");
+        return;
+      }
+
+      // ✅ Calls Django backend logout endpoint with Authorization header
+      await api.post("/api/users/logout/", { refresh });
+
+      console.log("✅ Logout successful");
+    } catch (error) {
+      console.error("❌ Logout failed:", error.response?.data || error.message);
+    } finally {
+      // Clear localStorage and redirect to login
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      navigate("/");
     }
   };
 
-  // --- Profile Menu (Desktop)
-  const menuId = "primary-account-menu";
+  // -----------------------------
+  // Desktop Menu
+  // -----------------------------
   const renderMenu = (
     <Menu
       anchorEl={anchorEl}
       anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      id={menuId}
+      id="primary-account-menu"
       keepMounted
       transformOrigin={{ vertical: "top", horizontal: "right" }}
       open={isMenuOpen}
       onClose={handleMenuClose}
     >
-      <MenuItem
-        onClick={() => {
-          handleMenuClose();
-        }}
-      >
+      <MenuItem onClick={handleProfile}>
         <IconButton size="small" color="inherit">
-          <AccountCircle />
+          <PersonIcon />
         </IconButton>
-        My Profile
+        Profile
       </MenuItem>
+
       <Divider component="li" />
+
       <MenuItem onClick={handleUserManagement}>
         <IconButton size="small" color="inherit">
           <AccountCircle />
         </IconButton>
-        <p>User Management</p>
+        User Management
       </MenuItem>
+
       <Divider component="li" />
-      <MenuItem
-        variant="contained"
-        color="secondary"
-        onClick={handleLogout}
-      >
-        <IconButton size="small" color="inherit" >
+
+      <MenuItem onClick={handleLogout}>
+        <IconButton size="small" color="inherit">
           <LogoutIcon />
         </IconButton>
         Logout
@@ -97,78 +119,76 @@ function PrimaryAppBar() {
     </Menu>
   );
 
-  // --- Mobile Menu (When screen < md)
-  const mobileMenuId = "primary-account-menu-mobile";
+  // -----------------------------
+  // Mobile Menu
+  // -----------------------------
   const renderMobileMenu = (
     <Menu
       anchorEl={mobileMoreAnchorEl}
       anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      id={mobileMenuId}
+      id="primary-account-menu-mobile"
       keepMounted
       transformOrigin={{ vertical: "top", horizontal: "right" }}
       open={isMobileMenuOpen}
       onClose={handleMenuClose}
     >
-      <MenuItem onClick={handleProfileMenuOpen}>
+      <MenuItem onClick={handleProfile}>
+        <IconButton size="small" color="inherit">
+          <PersonIcon />
+        </IconButton>
+        Profile
+      </MenuItem>
+
+      <Divider component="li" />
+
+      <MenuItem onClick={handleUserManagement}>
         <IconButton size="small" color="inherit">
           <AccountCircle />
         </IconButton>
-        <p>My Profile</p>
+        User Management
       </MenuItem>
+
       <Divider component="li" />
-      <MenuItem
-        variant="contained"
-        color="secondary"
-        onClick={handleLogout}
-      >
-        <IconButton size="small" color="inherit" >
+
+      <MenuItem onClick={handleLogout}>
+        <IconButton size="small" color="inherit">
           <LogoutIcon />
         </IconButton>
-        <p>Logout</p>
+        Logout
       </MenuItem>
     </Menu>
   );
 
+  // -----------------------------
+  // Render Header Bar
+  // -----------------------------
   return (
-    <Box sx={{ flexGrow: 1 }} >
+    <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static" className="header-color">
         <Toolbar>
-          {/* Left Side: Menu Icon + Title */}
+          {/* Left side - Menu + Title */}
           <IconButton size="large" edge="start" color="inherit" sx={{ mr: 2 }}>
             <MenuIcon />
           </IconButton>
 
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{ display: { xs: "none", sm: "block" } }}
-          >
-           Welcome 
+          <Typography variant="h6" noWrap component="div">
+            Welcome
           </Typography>
 
-          {/* Spacer pushes right-side icons */}
+          {/* Spacer pushes items right */}
           <Box sx={{ flexGrow: 1 }} />
 
-          {/* Desktop Right-Side (Profile only, since Home/Rules are inside menu) */}
+          {/* Desktop Navigation */}
           <Box sx={{ display: { xs: "none", md: "flex" } }}>
-            <MenuItem
-               sx={{ color: "#fff" }}
-              onClick={() => {
-                navigate("/home");
-              }}
-            >
-              <FaHome size={20} style={{ paddingRight: "2px", fontSize: "32px" }} />
+            <MenuItem sx={{ color: "#fff" }} onClick={() => navigate("/home")}>
+              <FaHome size={22} style={{ marginRight: "6px" }} />
               Home
             </MenuItem>
-            <MenuItem
-               sx={{ color: "#fff" }}
-              onClick={() => {
-                navigate("/rules");
-              }}
-            >
+
+            <MenuItem sx={{ color: "#fff" }} onClick={() => navigate("/rules")}>
               Rules
             </MenuItem>
+
             <IconButton
               size="large"
               edge="end"
@@ -179,7 +199,7 @@ function PrimaryAppBar() {
             </IconButton>
           </Box>
 
-          {/* Mobile Right-Side (3-dots menu) */}
+          {/* Mobile Navigation */}
           <Box sx={{ display: { xs: "flex", md: "none" } }}>
             <IconButton
               size="large"
@@ -199,10 +219,10 @@ function PrimaryAppBar() {
   );
 }
 
-// ✅ Export Header
+// -----------------------------
+// Export Header Component
+// -----------------------------
 const Header = () => (
- 
-
   <Box>
     <PrimaryAppBar />
   </Box>

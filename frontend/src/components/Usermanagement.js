@@ -23,13 +23,17 @@ const Usermanagement = () => {
   const [openCoinDialog, setOpenCoinDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [amount, setAmount] = useState("");
-  const [formData, setFormData] = useState({ username: "", password: "" });
+  const [formData, setFormData] = useState({ username: "", password: "", initial_balance: "" });
   const [adminBalance, setAdminBalance] = useState(0);
 
   const fetchUsers = async () => {
     try {
       const res = await axios.get("/api/users/");
-      setUsers(res.data);
+      const data = res.data;
+
+      // Filter out admin/superusers
+      const filteredUsers = data.filter((u) => !u.is_superuser);
+      setUsers(filteredUsers);
       const me = res.data.find(
         (u) => u.username === localStorage.getItem("username")
       );
@@ -45,9 +49,14 @@ const Usermanagement = () => {
 
   const handleCreateUser = async () => {
     try {
-      await axios.post("/api/users/", { ...formData, role: "client" });
+      await axios.post("/api/users/", {
+        username: formData.username,
+        password: formData.password,
+        role: "client",
+        initial_balance: formData.initial_balance, // ✅ Added
+      });
       setOpenAddUser(false);
-      setFormData({ username: "", password: "" });
+      setFormData({ username: "", password: "", initial_balance: "" });
       fetchUsers();
     } catch (err) {
       console.error("Error creating user", err);
@@ -68,13 +77,22 @@ const Usermanagement = () => {
     }
   };
 
+  const handleDeleteUser = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    try {
+      await axios.delete(`/api/users/${id}/`);
+      fetchUsers();
+    } catch (err) {
+      console.error("Error deleting user", err);
+    }
+  };
+
   return (
     <Box p={3}>
       <Typography variant="h4" gutterBottom>
         👥 User Management
       </Typography>
       <Typography variant="h6" gutterBottom>
-        Admin Balance: ₹{adminBalance}
       </Typography>
 
       <Button
@@ -91,23 +109,20 @@ const Usermanagement = () => {
           <TableHead>
             <TableRow>
               <TableCell>Username</TableCell>
-              <TableCell>Role</TableCell>
               <TableCell>Balance</TableCell>
-              <TableCell>Created By</TableCell>
-              <TableCell>Action</TableCell>
+              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {users.map((u) => (
               <TableRow key={u.id}>
                 <TableCell>{u.username}</TableCell>
-                <TableCell>{u.role}</TableCell>
                 <TableCell>₹{u.balance}</TableCell>
-                <TableCell>{u.created_by || "-"}</TableCell>
                 <TableCell>
                   <Button
                     variant="outlined"
                     size="small"
+                    sx={{ mr: 1 }}
                     onClick={() => {
                       setSelectedUser(u);
                       setOpenCoinDialog(true);
@@ -115,6 +130,16 @@ const Usermanagement = () => {
                   >
                     Add Coins
                   </Button>
+                  {!u.is_superuser && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => handleDeleteUser(u.id)}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -122,7 +147,7 @@ const Usermanagement = () => {
         </Table>
       </Paper>
 
-      {/* Create User Dialog */}
+      {/* Add User Dialog */}
       <Dialog open={openAddUser} onClose={() => setOpenAddUser(false)}>
         <DialogTitle>Create New User</DialogTitle>
         <DialogContent>
@@ -131,9 +156,7 @@ const Usermanagement = () => {
             fullWidth
             margin="normal"
             value={formData.username}
-            onChange={(e) =>
-              setFormData({ ...formData, username: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
           />
           <TextField
             label="Password"
@@ -141,9 +164,15 @@ const Usermanagement = () => {
             fullWidth
             margin="normal"
             value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          />
+          <TextField
+            label="Initial Coins"
+            type="number"
+            fullWidth
+            margin="normal"
+            value={formData.initial_balance}
+            onChange={(e) => setFormData({ ...formData, initial_balance: e.target.value })}
           />
         </DialogContent>
         <DialogActions>
@@ -154,9 +183,11 @@ const Usermanagement = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Grant Coins Dialog */}
+      {/* Add Coins Dialog */}
       <Dialog open={openCoinDialog} onClose={() => setOpenCoinDialog(false)}>
-        <DialogTitle>Grant Coins to {selectedUser?.username}</DialogTitle>
+        <DialogTitle>
+          Grant Coins to {selectedUser?.username || ""}
+        </DialogTitle>
         <DialogContent>
           <TextField
             label="Amount"
