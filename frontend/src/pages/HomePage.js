@@ -4,11 +4,9 @@ import { styled } from "@mui/material/styles";
 import { Box } from "@mui/material";
 
 const menuItems = [
-  { icon: "frontend_assets/Inplay.png", path: "/inplay/matches" },
   { icon: "frontend_assets/Casino.png", path: "/casino" },
   { icon: "frontend_assets/Profile.png", path: "/profile" },
   { icon: "frontend_assets/Statement.png", path: "/statement" },
-  { icon: "frontend_assets/Free_Games.png", path: "/free-games" },
   { icon: "frontend_assets/Rules.png", path: "/rules" },
   { icon: "frontend_assets/My_Ledger.png", path: "/ledger" },
   { icon: "frontend_assets/Password.png", path: "/password" },
@@ -33,7 +31,7 @@ const HomePage = () => {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, // 👈 2 on mobile, 4 on desktop
+          gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, // 👈 2 on mobile, 4 on desktop
           gap: 2, // spacing between items
           maxWidth: "900px",
           width: "100%",
@@ -49,8 +47,8 @@ const HomePage = () => {
                 src={item.icon}
                 alt={`menu-${index}`}
                 style={{
-                  width: "150px", // bigger images
-                  height: "150px",
+                  width: "180px", // bigger images
+                  height: "180px",
                   objectFit: "contain",
                 }}
               />

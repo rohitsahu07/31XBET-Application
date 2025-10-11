@@ -28,15 +28,15 @@ const Rules = () => {
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="center" mb={2}>
-        <Button variant="contained" color="primary" onClick={handleMainMenu}>
+        <Button className="main-menu-btn" variant="contained" onClick={handleMainMenu}>
           MAIN MENU
         </Button>
       </Box>
       <Box display="flex" justifyContent="center" mb={4}>
-        <Button variant="outlined" onClick={scrollToHindi} sx={{ mr: 2 }}>
+        <Button className="rule_border_btn" variant="outlined" onClick={scrollToHindi} sx={{ mr: 2 }}>
           Hindi
         </Button>
-        <Button variant="outlined" onClick={scrollToEnglish}>
+        <Button className="rule_border_btn" variant="outlined" onClick={scrollToEnglish}>
           English
         </Button>
       </Box>
@@ -1396,7 +1396,7 @@ const Rules = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} variant="contained" color="primary">
+          <Button onClick={handleClose} variant="contained" className="main-menu-btn">
             Close
           </Button>
         </DialogActions>
