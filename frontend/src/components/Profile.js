@@ -19,16 +19,10 @@ const Profile = () => {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem("access_token");
-        const res = await axios.get("/api/users/", {
+        const res = await axios.get("/api/users/me/", {
           headers: { Authorization: `Bearer ${token}` },
         });
-
-        // Assuming the current logged-in user is the first (or use your logic)
-        const currentUser = res.data.find(
-          (user) => user.username === localStorage.getItem("username")
-        ) || res.data[0];
-
-        setProfile(currentUser || {});
+        setProfile(res.data || {});
       } catch (err) {
         console.error("Error loading profile:", err);
       }

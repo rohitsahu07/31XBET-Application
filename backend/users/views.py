@@ -61,6 +61,12 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        user = request.user
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
+
     # ✅ Filter out admin from list
     def list(self, request):
         queryset = User.objects.exclude(is_superuser=True).order_by('id')
