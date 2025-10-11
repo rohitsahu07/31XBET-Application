@@ -55,26 +55,36 @@ function PrimaryAppBar() {
   // -----------------------------
   const handleLogout = async () => {
     try {
-      const refresh = localStorage.getItem("refresh");
-      const access = localStorage.getItem("access");
+      const refresh = localStorage.getItem("refresh_token");
+      const access = localStorage.getItem("access_token");
 
       if (!refresh || !access) {
-        console.warn("No tokens found, redirecting to login");
+        console.warn("⚠️ No tokens found, redirecting to login...");
         localStorage.clear();
         navigate("/");
         return;
       }
 
-      // ✅ Calls Django backend logout endpoint with Authorization header
-      await api.post("/api/users/logout/", { refresh });
+      console.log("🔄 Sending logout request to backend...");
 
-      console.log("✅ Logout successful");
+      // ✅ Proper API call with Authorization header
+      await api.post(
+        "/api/users/logout/",
+        { refresh },
+        {
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        }
+      );
+
+      console.log("✅ Logout successful (backend hit confirmed)");
     } catch (error) {
       console.error("❌ Logout failed:", error.response?.data || error.message);
     } finally {
-      // Clear localStorage and redirect to login
-      localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
+      // ✅ Clear tokens and redirect to login page
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
       navigate("/");
     }
   };
