@@ -2,9 +2,14 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography } from "@mui/material";
 
-const CountdownTimer = () => {
+const CountdownTimer = ({ onPhaseChange }) => {
   const [time, setTime] = useState(20);
   const [phase, setPhase] = useState("long"); // "long" = 20→0, "short" = 10→0
+
+  useEffect(() => {
+    // Notify parent when phase changes
+    if (onPhaseChange) onPhaseChange(phase);
+  }, [phase, onPhaseChange]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -29,7 +34,7 @@ const CountdownTimer = () => {
   return (
     <Box
       sx={{
-        bgcolor: "#1e88e5",
+        bgcolor: phase === "long" ? "#1e88e5" : "#d32f2f", // blue for long, red for short
         borderRadius: "50%",
         width: 70,
         height: 70,
@@ -40,6 +45,7 @@ const CountdownTimer = () => {
         fontWeight: "bold",
         fontSize: "1.5rem",
         boxShadow: "0 0 10px rgba(255,255,255,0.4)",
+        transition: "0.3s",
       }}
     >
       <Typography variant="h5">{time}</Typography>
