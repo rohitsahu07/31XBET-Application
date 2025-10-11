@@ -4,15 +4,11 @@ from .models import Transaction
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
     list_display = (
-        'id',
-        'from_user',
-        'to_user',
-        'amount',
-        'type',
-        'timestamp',
-        'description',
+        'id', 'from_user', 'to_user', 'amount', 'type',
+        'prev_balance', 'credit', 'debit', 'balance',
+        'timestamp', 'description',
     )
-    list_filter = ('type', 'timestamp')  # Sidebar filters
+    list_filter = ('type', 'timestamp')
     search_fields = ('from_user__username', 'to_user__username', 'description')
-    ordering = ('-timestamp',)  # Show latest transactions first
-    readonly_fields = ('timestamp',)  # Auto-set timestamp is read-only
+    ordering = ('-timestamp',)
+    readonly_fields = ('timestamp',)

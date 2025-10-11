@@ -1,18 +1,21 @@
 from django.contrib import admin
-from .models import Game, Bet
+from .models import BetRecord
 
-@admin.register(Game)
-class GameAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'type', 'status', 'metadata')
-    list_filter = ('type', 'status')  # Adds filters in sidebar
-    search_fields = ('name', 'type')  # Searchable fields
-    ordering = ('id',)  # Default ordering
-    readonly_fields = ('id',)  # Make id read-only
-
-@admin.register(Bet)
-class BetAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'game', 'amount', 'status', 'outcome', 'details')
-    list_filter = ('status', 'game', 'user')  # Filters in sidebar
-    search_fields = ('user__username', 'game__name')  # Search by username or game name
-    ordering = ('id',)
-    readonly_fields = ('id',)
+@admin.register(BetRecord)
+class BetRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "description",
+        "won_by",            # 🆕 Show this column in admin table
+        "prev_balance",
+        "credit",
+        "debit",
+        "balance",
+        "status",
+        "date_time",
+    )
+    list_filter = ("status", "won_by", "user")  # 🆕 Filter by who won
+    search_fields = ("user__username", "description", "won_by")
+    ordering = ("-date_time",)
+    readonly_fields = ("id",)

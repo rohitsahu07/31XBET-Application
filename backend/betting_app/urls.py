@@ -6,7 +6,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # ✅ These must all exist:
     path('api/users/', include('users.urls')),
-    path('api/ledger/', include('ledger.urls')),
     path('api/bets/', include('bets.urls')),
+    path('api/ledger/', include('ledger.urls')),  # required for /api/ledger/statement/
 ]

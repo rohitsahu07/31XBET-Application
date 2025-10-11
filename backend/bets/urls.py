@@ -1,10 +1,7 @@
-from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import BetViewSet, CricketMatchesView
+from .views import BetRecordViewSet
 
 router = DefaultRouter()
-router.register(r'', BetViewSet, basename='bet')
+router.register(r'', BetRecordViewSet, basename='betrecord')
 
-urlpatterns = router.urls + [
-    path('cricket/matches/', CricketMatchesView.as_view(), name='cricket_matches'),
-]
+urlpatterns = router.urls
