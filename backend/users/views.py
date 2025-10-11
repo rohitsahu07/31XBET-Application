@@ -67,8 +67,15 @@ class UserViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # ✅ Create user instance but hash password manually
+        password = request.data.get("password")
         user = serializer.save(created_by=request.user)
 
+        if password:
+            user.set_password(password)  # ✅ Hash password properly
+            user.save()
+
+        # ✅ Handle optional initial balance
         initial_balance = request.data.get("initial_balance")
         if initial_balance:
             try:

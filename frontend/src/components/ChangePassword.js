@@ -26,10 +26,18 @@ const ChangePassword = () => {
     try {
       setLoading(true);
       setMessage("");
-      const res = await axios.post("/api/change-password/", {
-        old_password: currentPassword,
-        new_password: newPassword,
-      });
+      const res = await axios.post(
+        "/api/users/change-password/",
+        {
+          old_password: currentPassword,
+          new_password: newPassword,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          },
+        }
+      );
       setMessage(res.data.detail || "Password changed successfully!");
       setCurrentPassword("");
       setNewPassword("");
