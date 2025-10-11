@@ -1,4 +1,3 @@
-# backend/users/views.py
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.decorators import action
@@ -8,9 +7,20 @@ from django.contrib.auth import get_user_model
 from decimal import Decimal
 from ledger.models import Transaction
 from .serializers import UserSerializer
-from rest_framework_simplejwt.tokens import RefreshToken  # ✅ import for logout
+from rest_framework_simplejwt.tokens import RefreshToken
+import random, string
 
 User = get_user_model()
+
+
+def generate_chip_code():
+    """Generate unique chip code like CL6915"""
+    return "CL" + str(random.randint(1000, 9999))
+
+
+def generate_random_password():
+    """Generate random 6-character password"""
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 
 class ChangePasswordView(APIView):
@@ -28,6 +38,7 @@ class ChangePasswordView(APIView):
         user.save()
         return Response({"detail": "Password changed successfully"}, status=status.HTTP_200_OK)
 
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -44,97 +55,87 @@ class LogoutView(APIView):
             print("Logout error:", e)
             return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('id')
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
+    # ✅ Filter out admin from list
     def list(self, request):
-        user = request.user
-        if user.is_superuser:
-            queryset = User.objects.exclude(id=user.id)
-        else:
-            queryset = User.objects.filter(id=user.id)
+        queryset = User.objects.exclude(is_superuser=True).order_by('id')
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    # ✅ Create user with chip code, password, and initial balance
     def create(self, request):
-        """Admin creates user and optionally grants initial coins (logs a Transaction)."""
         if not request.user.is_superuser:
             return Response({"error": "Only admin can create users"}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        username = request.data.get("username")
+        password = request.data.get("password") or generate_random_password()
+        balance = Decimal(request.data.get("balance", "0.00"))
 
-        # ✅ Create user instance but hash password manually
-        password = request.data.get("password")
-        user = serializer.save(created_by=request.user)
+        chip_code = generate_chip_code()
 
-        if password:
-            user.set_password(password)  # ✅ Hash password properly
-            user.save()
-
-        # ✅ Handle optional initial balance
-        initial_balance = request.data.get("initial_balance")
-        if initial_balance:
-            try:
-                amount = Decimal(initial_balance)
-                prev = user.balance
-                user.balance = prev + amount
-                user.save()
-
-                Transaction.objects.create(
-                    from_user=request.user,
-                    to_user=user,
-                    amount=amount,
-                    type='grant',
-                    description=f"Initial chips granted to {user.username}",
-                    prev_balance=prev,
-                    credit=amount,
-                    debit=Decimal("0.00"),
-                    balance=user.balance,
-                )
-            except Exception as e:
-                print("⚠️ Invalid balance value:", e)
-
-        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
-
-    @action(detail=False, methods=['post'])
-    def grant_coins(self, request):
-        """Admin grants chips to a user and logs a Transaction (for Statement)."""
-        if not request.user.is_superuser:
-            return Response({"error": "Only admin can grant coins"}, status=status.HTTP_403_FORBIDDEN)
-
-        user_id = request.data.get("user_id")
-        amount = Decimal(request.data.get("amount", 0))
-
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        prev = user.balance
-        user.balance = prev + amount
+        user = User.objects.create(
+            username=username,
+            created_by=request.user,
+            role="client"
+        )
+        user.set_password(password)
         user.save()
 
-        Transaction.objects.create(
-            from_user=request.user,
-            to_user=user,
-            amount=amount,
-            type='grant',
-            description=f"Chips credited by {request.user.username} to {user.username}",
-            prev_balance=prev,
-            credit=amount,
-            debit=Decimal("0.00"),
-            balance=user.balance,
-        )
+        user.balance = balance
+        user.save()
 
-        return Response({"success": f"{amount} coins added to {user.username}."}, status=status.HTTP_200_OK)
+        return Response({
+            "message": "User created successfully!",
+            "user": UserSerializer(user).data,
+            "login_details": {
+                "url": "http://jsm99.pro/",
+                "chip_code": chip_code,
+                "username": username,
+                "password": password,
+                "balance": str(balance)
+            }
+        }, status=status.HTTP_201_CREATED)
 
-    def destroy(self, request, *args, **kwargs):
-        if not request.user.is_superuser:
-            return Response({"error": "Only admin can delete users"}, status=status.HTTP_403_FORBIDDEN)
+    @action(detail=True, methods=['post'])
+    def deposit(self, request, pk=None):
         user = self.get_object()
-        user.delete()
-        return Response({"success": f"User '{user.username}' deleted successfully."}, status=status.HTTP_200_OK)
+        amount = Decimal(request.data.get('amount', 0))
+        user.balance += amount
+        user.save()
+        return Response({"message": f"₹{amount} added successfully", "balance": user.balance})
+
+    @action(detail=True, methods=['post'])
+    def withdraw(self, request, pk=None):
+        user = self.get_object()
+        amount = Decimal(request.data.get('amount', 0))
+        if user.balance < amount:
+            return Response({"error": "Insufficient balance"}, status=400)
+        user.balance -= amount
+        user.save()
+        return Response({"message": f"₹{amount} withdrawn successfully", "balance": user.balance})
+
+    @action(detail=True, methods=['post'])
+    def reset_password(self, request, pk=None):
+        user = self.get_object()
+        new_password = generate_random_password()
+        user.set_password(new_password)
+        user.save()
+        return Response({
+            "message": "Password reset successfully",
+            "new_password": new_password
+        })
+
+    @action(detail=True, methods=['post'])
+    def edit_name(self, request, pk=None):
+        user = self.get_object()
+        new_name = request.data.get('username')
+        if not new_name:
+            return Response({"error": "Username required"}, status=400)
+        user.username = new_name
+        user.save()
+        return Response({"message": "Username updated successfully", "username": user.username})

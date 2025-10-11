@@ -13,5 +13,6 @@ class UserSerializer(serializers.ModelSerializer):
             'email',
             'is_superuser',
             'is_staff',
-            'balance',  # ✅ Added field
+            'balance',
+            'chip_code',   # ✅ Include chip_code
         ]

@@ -8,46 +8,34 @@ import {
   TableContainer,
   TableRow,
   Paper,
-  Select,
-  MenuItem,
-  Button,
 } from "@mui/material";
 import BackToMainMenuButton from "./common_components/BackToMenuBtn";
 import SectionHeader from "./common_components/PageTitle";
 
 const Profile = () => {
   const [profile, setProfile] = useState({});
-  const [rateDifference, setRateDifference] = useState(0);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem("access_token");
-        const res = await axios.get("/api/profile/", {
+        const res = await axios.get("/api/users/", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setProfile(res.data || {});
+
+        // Assuming the current logged-in user is the first (or use your logic)
+        const currentUser = res.data.find(
+          (user) => user.username === localStorage.getItem("username")
+        ) || res.data[0];
+
+        setProfile(currentUser || {});
       } catch (err) {
         console.error("Error loading profile:", err);
       }
     };
+
     fetchProfile();
   }, []);
-
-  const handleUpdate = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      await axios.put(
-        "/api/profile/update_rate/",
-        { rate_difference: rateDifference },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert("Rate Difference updated successfully");
-    } catch (err) {
-      console.error("Error updating rate difference:", err);
-      alert("Failed to update rate difference");
-    }
-  };
 
   const cellStyle = {
     borderRight: "1px solid #004d40",
@@ -65,8 +53,6 @@ const Profile = () => {
     >
       <SectionHeader title="MY PROFILE" />
 
-
-      {/* ================== PERSONAL INFORMATION ================== */}
       <TableContainer
         component={Paper}
         sx={{
@@ -93,42 +79,34 @@ const Profile = () => {
           <TableBody>
             <TableRow>
               <TableCell sx={{ ...cellStyle, fontWeight: "bold" }}>
-                Client Name :
+                Username :
               </TableCell>
               <TableCell sx={{ ...cellStyle, borderRight: "none" }}>
-                {profile.client_name || "—"}
+                {profile.username || "—"}
               </TableCell>
             </TableRow>
             <TableRow>
               <TableCell sx={{ ...cellStyle, fontWeight: "bold" }}>
-                Client Code :
+                Email :
               </TableCell>
               <TableCell sx={{ ...cellStyle, borderRight: "none" }}>
-                {profile.client_code || "—"}
+                {profile.email || "—"}
               </TableCell>
             </TableRow>
             <TableRow>
               <TableCell sx={{ ...cellStyle, fontWeight: "bold" }}>
-                Chips :
+                Balance :
               </TableCell>
               <TableCell sx={{ ...cellStyle, borderRight: "none" }}>
-                {profile.chips ?? "0"}
+                ₹{parseFloat(profile.balance || 0).toFixed(2)}
               </TableCell>
             </TableRow>
             <TableRow>
               <TableCell sx={{ ...cellStyle, fontWeight: "bold" }}>
-                DOJ :
+                Role :
               </TableCell>
               <TableCell sx={{ ...cellStyle, borderRight: "none" }}>
-                {profile.doj || "—"}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell sx={{ ...cellStyle, fontWeight: "bold" }}>
-                Address :
-              </TableCell>
-              <TableCell sx={{ ...cellStyle, borderRight: "none" }}>
-                {profile.address || "—"}
+                {profile.role || "User"}
               </TableCell>
             </TableRow>
           </TableBody>
