@@ -17,6 +17,8 @@ import Header from './components/Header';
 import SideBar from './components/SideBar';
 import RulesPage from './pages/RulesPage';
 import InplayPage from './pages/InplayPage';
+import CasinoPage from './pages/CasinoPage';
+import TeenPlayPage from './pages/TeenPlayPage';
 
 // Custom component to conditionally render Header
 const AppContent = () => {
@@ -44,6 +46,8 @@ const AppContent = () => {
           <Route path="/create-user" element={<CreateUserPage />} />
           <Route path="/bet-form" element={<BetFormPage />} />
           <Route path="/inplay/matches" element={<InplayPage />} />
+          <Route path="/casino" element={<CasinoPage />} />
+          <Route path="/teen-play" element={<TeenPlayPage />} />
         </Routes>
       </Box>
     </>
@@ -54,12 +58,12 @@ const theme = createTheme({
   palette: {
     primary: { main: '#7C4DFF' },
     background: { default: '#FFFFFF', paper: '#F5F5F5' },
-    text: { primary: '#333333', secondary: '#757575' },
+    text: { primary: '#f8ededff', secondary: '#757575' },
   },
   typography: {
     fontFamily: 'Roboto, sans-serif',
     h1: { fontSize: '2rem', fontWeight: 500 },
-    body1: { fontSize: '1rem', color: '#333333' },
+    body1: { fontSize: '1rem', color: '#000000' },
   },
   components: {
     MuiButton: { styleOverrides: { root: { borderRadius: '8px', textTransform: 'none' } } },

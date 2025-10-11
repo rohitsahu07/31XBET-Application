@@ -9,7 +9,7 @@
 
 body {
   background-color: #FFFFFF;
-  color: #333333;
+  color: #f1eded;
   font-family: 'Roboto', sans-serif;
 }
 
@@ -28,7 +28,7 @@ body {
 }
 
 .MuiListItemText-primary {
-  color: #333333;
+  color: #e7e2e2;
 }
 .header-color{
   background: #1cac78 !important;
@@ -38,4 +38,8 @@ body {
 }
 .main-menu-btn:hover {
   box-shadow: 0 4px 3px 1px #FCFCFC, 0 6px 8px #D6D7D9, 0 -4px 4px #CECFD1, 0 -6px 4px #FEFEFE, inset 0 0 3px 3px #CECFD1;
+}
+.rule_border_btn{
+  border: 1px solid #1cac78 !important;
+  color: #1cac78 !important;
 }
