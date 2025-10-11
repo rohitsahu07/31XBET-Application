@@ -16,6 +16,7 @@ import {
   TextField,
 } from "@mui/material";
 import axios from "../services/api";
+import SectionHeader from "./common_components/PageTitle";
 
 const Usermanagement = () => {
   const [users, setUsers] = useState([]);
@@ -89,9 +90,7 @@ const Usermanagement = () => {
 
   return (
     <Box p={3}>
-      <Typography variant="h4" gutterBottom>
-        👥 User Management
-      </Typography>
+      <SectionHeader title="👥 User Management" />
       <Typography variant="h6" gutterBottom>
       </Typography>
 

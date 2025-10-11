@@ -10,36 +10,22 @@ import {
   Menu,
   Divider,
 } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
 import AccountCircle from "@mui/icons-material/AccountCircle";
-import MoreIcon from "@mui/icons-material/MoreVert";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import { FaHome } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api"; // ✅ centralized axios instance
+import api from "../services/api";
 
-function PrimaryAppBar() {
+function Header() {
   const [anchorEl, setAnchorEl] = React.useState(null);
-  const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState(null);
   const navigate = useNavigate();
 
   const isMenuOpen = Boolean(anchorEl);
-  const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
 
-  // -----------------------------
-  // Menu Handlers
-  // -----------------------------
   const handleProfileMenuOpen = (event) => setAnchorEl(event.currentTarget);
-  const handleMobileMenuOpen = (event) => setMobileMoreAnchorEl(event.currentTarget);
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setMobileMoreAnchorEl(null);
-  };
+  const handleMenuClose = () => setAnchorEl(null);
 
-  // -----------------------------
-  // Navigation Actions
-  // -----------------------------
   const handleProfile = () => {
     handleMenuClose();
     navigate("/profile");
@@ -50,9 +36,6 @@ function PrimaryAppBar() {
     navigate("/user-management");
   };
 
-  // -----------------------------
-  // Logout Handler (Full Backend Integration)
-  // -----------------------------
   const handleLogout = async () => {
     try {
       const refresh = localStorage.getItem("refresh");
@@ -65,28 +48,21 @@ function PrimaryAppBar() {
         return;
       }
 
-      // ✅ Calls Django backend logout endpoint with Authorization header
       await api.post("/api/users/logout/", { refresh });
-
       console.log("✅ Logout successful");
     } catch (error) {
       console.error("❌ Logout failed:", error.response?.data || error.message);
     } finally {
-      // Clear localStorage and redirect to login
-      localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
+      localStorage.clear();
       navigate("/");
     }
   };
 
-  // -----------------------------
-  // Desktop Menu
-  // -----------------------------
   const renderMenu = (
     <Menu
       anchorEl={anchorEl}
       anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      id="primary-account-menu"
+      id="account-menu"
       keepMounted
       transformOrigin={{ vertical: "top", horizontal: "right" }}
       open={isMenuOpen}
@@ -119,69 +95,22 @@ function PrimaryAppBar() {
     </Menu>
   );
 
-  // -----------------------------
-  // Mobile Menu
-  // -----------------------------
-  const renderMobileMenu = (
-    <Menu
-      anchorEl={mobileMoreAnchorEl}
-      anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      id="primary-account-menu-mobile"
-      keepMounted
-      transformOrigin={{ vertical: "top", horizontal: "right" }}
-      open={isMobileMenuOpen}
-      onClose={handleMenuClose}
-    >
-      <MenuItem onClick={handleProfile}>
-        <IconButton size="small" color="inherit">
-          <PersonIcon />
-        </IconButton>
-        Profile
-      </MenuItem>
-
-      <Divider component="li" />
-
-      <MenuItem onClick={handleUserManagement}>
-        <IconButton size="small" color="inherit">
-          <AccountCircle />
-        </IconButton>
-        User Management
-      </MenuItem>
-
-      <Divider component="li" />
-
-      <MenuItem onClick={handleLogout}>
-        <IconButton size="small" color="inherit">
-          <LogoutIcon />
-        </IconButton>
-        Logout
-      </MenuItem>
-    </Menu>
-  );
-
-  // -----------------------------
-  // Render Header Bar
-  // -----------------------------
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static" className="header-color">
         <Toolbar>
-          {/* Left side - Menu + Title */}
-          <IconButton size="large" edge="start" color="inherit" sx={{ mr: 2 }}>
-            <MenuIcon />
-          </IconButton>
-
+          {/* Left: Title */}
           <Typography variant="h6" noWrap component="div">
             Welcome
           </Typography>
 
-          {/* Spacer pushes items right */}
+          {/* Spacer */}
           <Box sx={{ flexGrow: 1 }} />
 
-          {/* Desktop Navigation */}
-          <Box sx={{ display: { xs: "none", md: "flex" } }}>
+          {/* Desktop Menu */}
+          <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}>
             <MenuItem sx={{ color: "#fff" }} onClick={() => navigate("/home")}>
-              <FaHome size={22} style={{ marginRight: "6px" }} />
+              <FaHome size={20} style={{ marginRight: "6px" }} />
               Home
             </MenuItem>
 
@@ -189,43 +118,23 @@ function PrimaryAppBar() {
               Rules
             </MenuItem>
 
-            <IconButton
-              size="large"
-              edge="end"
-              color="inherit"
-              onClick={handleProfileMenuOpen}
-            >
+            <IconButton size="large" color="inherit" onClick={handleProfileMenuOpen}>
               <AccountCircle />
             </IconButton>
           </Box>
 
-          {/* Mobile Navigation */}
+          {/* Mobile View: Only Profile Icon */}
           <Box sx={{ display: { xs: "flex", md: "none" } }}>
-            <IconButton
-              size="large"
-              color="inherit"
-              onClick={handleMobileMenuOpen}
-            >
-              <MoreIcon />
+            <IconButton size="large" color="inherit" onClick={handleProfileMenuOpen}>
+              <AccountCircle />
             </IconButton>
           </Box>
         </Toolbar>
       </AppBar>
 
-      {/* Menus */}
-      {renderMobileMenu}
       {renderMenu}
     </Box>
   );
 }
-
-// -----------------------------
-// Export Header Component
-// -----------------------------
-const Header = () => (
-  <Box>
-    <PrimaryAppBar />
-  </Box>
-);
 
 export default Header;
