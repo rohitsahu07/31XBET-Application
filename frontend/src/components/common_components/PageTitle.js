@@ -4,7 +4,7 @@ import { Box } from "@mui/material";
 
 const SectionHeader = ({
   title = "Section Title",
-  bgColor = "#c62828",
+  bgColor = "#0ABAB5",
   textColor = "#fff",
   mx = 0,
   mb = 0,

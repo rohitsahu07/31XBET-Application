@@ -45,7 +45,7 @@ const Profile = () => {
         p: 2,
       }}
     >
-      <SectionHeader title="MY PROFILE" />
+      <SectionHeader title="👤 MY PROFILE" />
 
       <TableContainer
         component={Paper}
