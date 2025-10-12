@@ -19,6 +19,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { FaUsers } from "react-icons/fa";
 import Swal from "sweetalert2";
 import api from "../services/api";
+import SectionHeader from "./common_components/PageTitle";
 
 function Usermanagement() {
   const [users, setUsers] = useState([]);
@@ -224,13 +225,8 @@ function Usermanagement() {
 
   return (
     <Box sx={{ padding: 3 }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-        <FaUsers size={28} style={{ marginRight: "10px", color: "#9b5de5" }} />
-        <Typography variant="h5" sx={{ fontWeight: "bold", color: "#fff" }}>
-          User Management
-        </Typography>
-      </Box>
+
+        <SectionHeader title="👥 User Management" mb="2" />
 
       {/* Add User Button */}
       <Button
@@ -239,6 +235,7 @@ function Usermanagement() {
           backgroundColor: "#16a34a",
           "&:hover": { backgroundColor: "#15803d" },
           mb: 2,
+          mt: 2
         }}
         onClick={handleAddUser}
       >
@@ -249,27 +246,27 @@ function Usermanagement() {
       <TableContainer
         component={Paper}
         sx={{
-          backgroundColor: "#121212",
-          color: "#fff",
+          backgroundColor: "#d1ceceff",
+          color: "#0c0c0cff",
           borderRadius: 2,
         }}
       >
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ color: "#a3e635", fontWeight: "bold" }}>Username</TableCell>
-              <TableCell sx={{ color: "#a3e635", fontWeight: "bold" }}>Balance</TableCell>
-              <TableCell sx={{ color: "#a3e635", fontWeight: "bold" }}>Actions</TableCell>
+              <TableCell sx={{ color: "#000", fontWeight: "bold" }}>Username</TableCell>
+              <TableCell sx={{ color: "#000", fontWeight: "bold" }}>Balance</TableCell>
+              <TableCell sx={{ color: "#000", fontWeight: "bold" }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {users.map((user) => (
               <TableRow key={user.id} hover>
-                <TableCell sx={{ color: "#fff" }}>{user.username}</TableCell>
-                <TableCell sx={{ color: "#fff" }}>₹{parseFloat(user.balance).toFixed(2)}</TableCell>
+                <TableCell sx={{ color: "#000" }}>{user.username}</TableCell>
+                <TableCell sx={{ color: "#000" }}>₹{parseFloat(user.balance).toFixed(2)}</TableCell>
                 <TableCell>
                   <IconButton color="inherit" onClick={(e) => handleMenuOpen(e, user)}>
-                    <MoreVertIcon sx={{ color: "#a3a3a3" }} />
+                    <MoreVertIcon sx={{ color: "#000" }} />
                   </IconButton>
                 </TableCell>
               </TableRow>

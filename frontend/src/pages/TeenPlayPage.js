@@ -1,7 +1,13 @@
-// src/pages/CasinoPage.js
-import React from 'react';
-import TeenPlay from '../components/TeenPlay';
+// src/pages/TeenPlayPage.js
+import React from "react";
+import TeenPlay from "../components/TeenPlay";
 
-const TeenPlayPage = () => <TeenPlay />;
+/**
+ * TeenPlayPage
+ * Receives setExpo from App.js to update the global Chips & Expo bar
+ */
+const TeenPlayPage = ({ setExpo }) => {
+  return <TeenPlay setExpo={setExpo} />;
+};
 
 export default TeenPlayPage;

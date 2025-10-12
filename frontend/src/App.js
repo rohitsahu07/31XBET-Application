@@ -1,5 +1,5 @@
 // src/App.js
-import React from "react";
+import React, { useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -12,6 +12,8 @@ import store from "./redux/store";
 
 // Components
 import Header from "./components/Header";
+import ChipsAndExpo from "./components/ChipsandExpo"; // ✅ fixed import (case-sensitive)
+import ScrollingTextBar from "./components/common_components/ScrollingBar";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -23,19 +25,23 @@ import TeenPlayPage from "./pages/TeenPlayPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import StatementPage from "./pages/StatementPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
-import ScrollingTextBar from "./components/common_components/ScrollingBar";
 import ProfilePage from "./pages/ProfilePage";
-
 
 const AppContent = () => {
   const location = useLocation();
   const showHeader = location.pathname !== "/"; // Hide header on login
-  const showScrollingBar = location.pathname !== "/"; // Hide header on login
+  const showScrollingBar = location.pathname !== "/"; // Hide scrolling bar on login
+  const showChipsAndExpo = location.pathname !== "/"; // Hide Chips & Expo on login
+
+  // ✅ Global Expo State
+  const [expo, setExpo] = useState(0);
 
   return (
     <>
       {showHeader && <Header />}
+      {showChipsAndExpo && <ChipsAndExpo expo={expo} />} {/* ✅ Global component */}
       {showScrollingBar && <ScrollingTextBar />}
+      
 
       <Box sx={{ p: 0 }}>
         <Routes>
@@ -48,7 +54,7 @@ const AppContent = () => {
           <Route path="/ledger" element={<LedgerPage />} />
           <Route path="/statement" element={<StatementPage />} />
           <Route path="/casino" element={<CasinoPage />} />
-          <Route path="/teen-play" element={<TeenPlayPage />} />
+          <Route path="/teen-play" element={<TeenPlayPage setExpo={setExpo} />} /> {/* ✅ pass setExpo */}
           <Route path="/user-management" element={<UserManagementPage />} />
           <Route path="/password" element={<ChangePasswordPage />} />
           <Route path="/profile" element={<ProfilePage />} />
@@ -60,11 +66,11 @@ const AppContent = () => {
 
 function App() {
   return (
-      <Provider store={store}>
-        <Router>
-          <AppContent />
-        </Router>
-      </Provider>
+    <Provider store={store}>
+      <Router>
+        <AppContent />
+      </Router>
+    </Provider>
   );
 }
 

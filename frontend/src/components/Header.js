@@ -82,15 +82,7 @@ function Header() {
       open={isMenuOpen}
       onClose={handleMenuClose}
     >
-      <MenuItem onClick={handleProfile}>
-        <IconButton size="small" color="inherit">
-          <PersonIcon />
-        </IconButton>
-        Profile
-      </MenuItem>
-
-      <Divider component="li" />
-
+      
       <MenuItem onClick={handleUserManagement}>
         <IconButton size="small" color="inherit">
           <AccountCircle />

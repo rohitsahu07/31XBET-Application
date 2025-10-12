@@ -16,6 +16,7 @@ import {
   InputLabel,
 } from "@mui/material";
 import BackToMainMenuButton from "./common_components/BackToMenuBtn";
+import SectionHeader from "./common_components/PageTitle";
 
 const Ledger = () => {
   const [records, setRecords] = useState([]);
@@ -71,20 +72,7 @@ const Ledger = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography
-        variant="h5"
-        gutterBottom
-        sx={{
-          background: "#c62828",
-          color: "white",
-          p: 1.5,
-          textAlign: "center",
-          fontWeight: "bold",
-          borderRadius: "6px",
-        }}
-      >
-        LEDGER
-      </Typography>
+      <SectionHeader title="📜 LEDGER" />
 
       {/* Dropdown now truly starts empty */}
       <FormControl sx={{ mt: 2, mb: 2, minWidth: 240 }}>

@@ -84,11 +84,11 @@ const Statement = () => {
         p: 2,
       }}
     >
-       <SectionHeader title="My Account Statement" />
+       <SectionHeader title="💰 My Account Statement" />
 
       {/* Admin user dropdown */}
       {isAdmin && (
-        <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 2, mt: 2 }}>
           <FormControl sx={{ minWidth: 260 }}>
             <InputLabel>Select User</InputLabel>
             <Select
@@ -121,6 +121,7 @@ const Statement = () => {
           borderRadius: "6px",
           boxShadow: "0 3px 8px rgba(0,0,0,0.1)",
           overflowX: "auto",
+          mt: 2
         }}
       >
         <Table>

@@ -25,7 +25,7 @@ function Casino() {
     >
       {/* Header inside same Container for equal padding */}
       <Box sx={{ mb: 3 }}>
-        <SectionHeader title="Live Casino" />
+        <SectionHeader title="👑 Live Casino" />
       </Box>
 
       {/* Games Grid */}
