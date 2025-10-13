@@ -1,19 +1,15 @@
-# bets/views.py
-import time
-import random
 from decimal import Decimal, InvalidOperation
-
-from django.db import transaction
+import random, time
+from django.db import transaction, models
 from django.utils import timezone
-from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
 from rest_framework.response import Response
 
 from .models import BetRecord, RoundFeed
-from .serializers import BetRecordSerializer
-
-# Engine state + helpers
+from ledger.models import Transaction
+from users.models import User
 from .engine import (
     CURRENT_ROUND,
     _LOCK,
@@ -25,9 +21,9 @@ from .engine import (
     pretty,
 )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# small helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────
 def _ts_to_dt(ts: int):
     return timezone.make_aware(
         timezone.datetime.fromtimestamp(int(ts)),
@@ -39,42 +35,41 @@ def _trim_feed(limit: int = 10):
     if ids:
         RoundFeed.objects.exclude(id__in=ids).delete()
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# /api/bets/profile/
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# Profile (balance + expo)
+# ─────────────────────────────────────────────
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def profile(request):
     user = request.user
-    is_admin = bool(getattr(user, "is_superuser", False))
-    if is_admin:
-        balance_str = "∞"
-        expo_str = "∞"
-    else:
-        bal = getattr(user, "balance", 0)
-        try:
-            balance_str = f"{float(bal):.2f}"
-        except Exception:
-            balance_str = str(bal)
-        expo_str = "0.00"
-
-    return Response(
-        {
+    if user.is_superuser:
+        return Response({
             "id": user.id,
-            "username": getattr(user, "username", ""),
-            "is_admin": is_admin,
-            "balance": balance_str,
-            "chips": balance_str,
-            "expo": expo_str,
-        },
-        status=status.HTTP_200_OK,
-    )
+            "username": user.username,
+            "is_admin": True,
+            "balance": "∞",
+            "chips": "∞",
+            "expo": "∞",
+        })
 
+    # calculate open exposure (bets in current round only)
+    global CURRENT_ROUND
+    current_round_id = CURRENT_ROUND["round_id"] if CURRENT_ROUND else None
+    open_bets = BetRecord.objects.filter(user=user, round_id=current_round_id)
+    expo_sum = open_bets.aggregate(total=models.Sum("amount"))["total"] or Decimal("0.00")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# /api/bets/current-round/
-# ─────────────────────────────────────────────────────────────────────────────
+    return Response({
+        "id": user.id,
+        "username": user.username,
+        "is_admin": False,
+        "balance": f"{user.balance:.2f}",
+        "chips": f"{user.balance:.2f}",
+        "expo": f"{expo_sum:.2f}",
+    })
+
+# ─────────────────────────────────────────────
+# Current Round
+# ─────────────────────────────────────────────
 @api_view(["GET"])
 def current_round(request):
     now = int(time.time())
@@ -87,17 +82,13 @@ def current_round(request):
         step = reveal_step(sec)
 
         if phase == "bet":
-            a_cards = [FLIPPED, FLIPPED, FLIPPED]
-            b_cards = [FLIPPED, FLIPPED, FLIPPED]
-            result = None
-            a_full = None
-            b_full = None
+            a_cards, b_cards = [FLIPPED]*3, [FLIPPED]*3
+            result, a_full, b_full = None, None, None
         else:
             a_cards = mask_cards_for_step(CURRENT_ROUND["player_a_full"], step, "A")
             b_cards = mask_cards_for_step(CURRENT_ROUND["player_b_full"], step, "B")
             result = CURRENT_ROUND["official_result"] if step == 6 else None
-            a_full = CURRENT_ROUND["player_a_full"]
-            b_full = CURRENT_ROUND["player_b_full"]
+            a_full, b_full = CURRENT_ROUND["player_a_full"], CURRENT_ROUND["player_b_full"]
 
         payload = {
             "round_id": CURRENT_ROUND["round_id"],
@@ -112,23 +103,19 @@ def current_round(request):
             "server_time": now,
         }
 
-    print(
-        f"[current-round] phase={phase:<6} sec={sec:>2} step={step} left={seconds_left:>2}s "
-        f"round={payload['round_id']} A={pretty(a_cards)} B={pretty(b_cards)} result={result}"
-    )
     return Response(payload, status=status.HTTP_200_OK)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# /api/bets/place-bet/
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# Place Bet
+# ─────────────────────────────────────────────
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def place_bet(request):
     try:
         round_id = request.data.get("round_id")
-        player = request.data.get("player")  # "A" | "B"
+        player = request.data.get("player")
         amount_raw = request.data.get("amount")
+        user = request.user
 
         try:
             amount = Decimal(str(amount_raw))
@@ -138,54 +125,66 @@ def place_bet(request):
         if not round_id or player not in ("A", "B"):
             return Response({"error": "Missing fields"}, status=400)
 
-        user = getattr(request, "user", None)
-        print(f"[place-bet] ENTER user={getattr(user, 'username', '?')} (client) round_id={round_id} player={player} amount={amount}")
-
         now = int(time.time())
         global CURRENT_ROUND
-
         with _LOCK:
             if CURRENT_ROUND is None:
                 CURRENT_ROUND = new_round_state(now)
 
             sec, phase, _ = calc_cycle(now)
+            if phase != "bet":
+                return Response({"error": "Bet window closed"}, status=400)
 
-            if phase == "bet":
-                # skewed result so it feels “biased” when betting
-                result = random.choices(["A", "B"], weights=[3, 7])[0] if player == "A" else random.choices(["A", "B"], weights=[7, 3])[0]
-                resolver = "biased"
-            else:
-                result = CURRENT_ROUND["official_result"]
-                resolver = "official"
+            # check balance
+            if user.balance < amount:
+                return Response({"error": "Insufficient balance"}, status=400)
 
-            # Build safe datetimes right here (no ints leak through)
-            start_dt = _ts_to_dt(CURRENT_ROUND["start_time"])
-            end_dt = timezone.now()
+            # biased result selection
+            result = (
+                random.choices(["A", "B"], weights=[3, 7])[0]
+                if player == "A"
+                else random.choices(["A", "B"], weights=[7, 3])[0]
+            )
 
             with transaction.atomic():
+                # Deduct chips
+                prev_bal = user.balance
+                new_bal = prev_bal - amount
+                user.balance = new_bal
+                user.save(update_fields=["balance"])
+
+                # Transaction entry
+                Transaction.objects.create(
+                    from_user=None,
+                    to_user=user,
+                    amount=amount,
+                    type="bet",
+                    description=f"Bet placed on Player {player} (Round {round_id})",
+                    prev_balance=prev_bal,
+                    debit=amount,
+                    credit=Decimal("0.00"),
+                    balance=new_bal,
+                )
+
+                # Bet record
+                BetRecord.objects.create(
+                    user=user, round_id=round_id, player=player, amount=amount
+                )
+
                 RoundFeed.objects.create(
-                    item_type="BET",
-                    round_id=CURRENT_ROUND["round_id"],
-                    start_time=start_dt,
-                    end_time=end_dt,
+                    item_type="Place Bet",
+                    round_id=round_id,
+                    start_time=_ts_to_dt(CURRENT_ROUND["start_time"]),
+                    end_time=timezone.now(),
                     player_a_cards=CURRENT_ROUND["player_a_full"],
                     player_b_cards=CURRENT_ROUND["player_b_full"],
                     official_winner=CURRENT_ROUND["official_result"],
                     player_choice=player,
                     bet_amount=amount,
-                    resolver=resolver,
+                    resolver="biased",
                     final_result=result,
                 )
-                # mark the round so the engine doesn't also add an ENGINE item for it
-                CURRENT_ROUND["skip_engine_feed"] = True
                 _trim_feed(10)
-
-        print(
-            f"[place-bet] OK phase={phase:<6} chose={player} amt={amount} "
-            f"resolver={resolver:<8} -> result={result}  round={round_id} "
-            f"A_full={pretty(CURRENT_ROUND['player_a_full'])}  "
-            f"B_full={pretty(CURRENT_ROUND['player_b_full'])}"
-        )
 
         return Response(
             {
@@ -193,42 +192,30 @@ def place_bet(request):
                 "round_id": round_id,
                 "player": player,
                 "bet_amount": str(amount),
-                "phase": phase,
-                "resolver": resolver,
                 "final_result": result,
-                "server_time": now,
             },
             status=200,
         )
 
     except Exception as e:
         print(f"[place-bet] ERROR: {e}")
-        return Response({"error": "Server error", "detail": str(e)}, status=500)
+        return Response({"error": str(e)}, status=500)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# /api/bets/feed/last-ten/
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# Last 10 Feed Endpoint (used by frontend)
+# ─────────────────────────────────────────────
 @api_view(["GET"])
 def last_ten_feed(request):
-    rows = RoundFeed.objects.order_by("-created_at")[:10]
-    items = []
-    for r in rows:
-        items.append(
-            {
-                "id": r.id,
-                "created_at": r.created_at,
-                "type": r.item_type,
-                "round_id": r.round_id,
-                "start_time": r.start_time,
-                "end_time": r.end_time,
-                "player_a_cards": r.player_a_cards,
-                "player_b_cards": r.player_b_cards,
-                "official_winner": r.official_winner,
-                "player_choice": r.player_choice,
-                "bet_amount": str(r.bet_amount) if r.bet_amount is not None else None,
-                "resolver": r.resolver,
-                "final_result": r.final_result,
-            }
-        )
-    return Response({"items": items}, status=200)
+    """Return the last 10 finished rounds for the frontend history display."""
+    items = (
+        RoundFeed.objects.order_by("-created_at")
+        .values("round_id", "final_result", "official_winner", "created_at")[:10]
+    )
+    formatted = []
+    for it in items:
+        formatted.append({
+            "round_id": it["round_id"],
+            "final_result": it["final_result"] or it["official_winner"],
+            "created_at": it["created_at"],
+        })
+    return Response({"items": formatted}, status=200)

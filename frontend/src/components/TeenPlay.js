@@ -271,6 +271,19 @@ function TeenPlay({ setExpo }) {
     return res;
   };
 
+  // 🔄 Refresh expo (balance/exposure) from backend profile
+  const refreshProfile = async () => {
+    try {
+      const url = buildUrl("/profile/");
+      const { data } = await api.get(url);
+      if (typeof setExpo === "function") {
+        setExpo(parseFloat(data.expo || 0));
+      }
+    } catch (e) {
+      console.error("[TeenPlay] failed to refresh expo:", e);
+    }
+  };
+
   /* ---------- last 10 feed ---------- */
   const loadFeed = async () => {
     try {
@@ -368,6 +381,10 @@ function TeenPlay({ setExpo }) {
       const { data } = await getCurrentRound();
       applySnapshot(data, true);
       setTimeout(loadFeed, 300);
+      setTimeout(() => {
+        refreshProfile();
+        console.log("[TeenPlay] Expo refreshed after boundary fetch");
+      }, 1000);
     } catch (e) {
       console.error("Boundary fetch failed:", e);
       setTimeout(triggerBoundaryFetch, 1200);
@@ -381,21 +398,20 @@ function TeenPlay({ setExpo }) {
     const isNewRound = roundIdRef.current !== data.round_id;
 
     if (isNewRound) {
-      // New server round – refresh feed shortly after
       setTimeout(loadFeed, 300);
       roundIdRef.current = data.round_id;
       setSelectedPlayer(null);
-      // Clear any straggler bets from previous round just in case
       setMatchBets([]);
+      // keep UI clean at new round start
+      //if (typeof setExpo === "function") setExpo(0);
     }
 
     const nextPhase = data.phase || "bet";
     const nextSecs =
-      typeof data.seconds_left === "number"
-        ? data.seconds_left
-        : nextPhase === "reveal"
-        ? 10
-        : 20;
+      typeof data.seconds_left === "number" ? data.seconds_left : nextPhase === "reveal" ? 10 : 20;
+
+    // NEW: capture previous phase BEFORE we mutate phase state
+    const prevPhase = phaseRef.current; // <— this stays in sync via the useEffect above
 
     setServerRound({
       round_id: data.round_id,
@@ -409,25 +425,23 @@ function TeenPlay({ setExpo }) {
     setPhase(nextPhase);
     setSecondsLeft(nextSecs);
 
-    // ✅ Auto-clear match bets when result is declared
+    // result arrived at end of reveal
     if (nextPhase === "reveal" && data.result) {
       setMatchBets([]);
       showToast(`Round Over — Winner: Player ${data.result}`, "success");
-    }
-    
-    // If a result arrives (end of reveal), clear bets UI and push to local lastResults
-    if (nextPhase === "reveal" && data.result) {
-      // Clear MATCH BETS for that finished round
-      setMatchBets([]);
-
-      // Locally append winner to lastResults (keep max 10)
-      setLastResults((prev) => {
-        const updated = [...prev, data.result].slice(-10);
-        return updated;
-      });
-
-      // Also pull feed once (ensures parity with backend table)
+      if (typeof setExpo === "function") setExpo(0);
+      refreshProfile();               // <— pulls expo=0 from backend (new round has new id)
+      setLastResults((prev) => [...prev.slice(-9), data.result]);
       setTimeout(loadFeed, 250);
+    }
+
+    // ✅ Unified expo refresh logic to avoid double /profile/ calls
+    if ((prevPhase === "reveal" && nextPhase === "bet") || (isNewRound && nextPhase === "bet")) {
+      if (typeof setExpo === "function") setExpo(0);
+      setTimeout(() => {
+        refreshProfile();
+        console.log("[TeenPlay] Expo refreshed after new round start");
+      }, 1000);
     }
 
     if (resetClock) {
@@ -435,12 +449,12 @@ function TeenPlay({ setExpo }) {
       startLocalClock();
     }
 
-    // ✅ When phase resets back to BET (new round), clear old bets table
+
     if (nextPhase === "bet" && !isNewRound) {
       setMatchBets([]);
-      console.log("[TeenPlay] Cleared match bets on new round start");
     }
   };
+
 
   /* ---------- player selection ---------- */
   const onSelectPlayer = (player) => {
