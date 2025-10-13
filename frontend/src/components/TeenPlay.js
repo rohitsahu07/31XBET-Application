@@ -875,7 +875,7 @@ function TeenPlay({ setExpo }) {
                     "&:hover": { opacity: 0.9 },
                   }}
                 >
-                  <Typography sx={{ lineHeight: 1 }}>0.95</Typography>
+                  <Typography sx={{ lineHeight: 1 }}>0.96</Typography>
                   <Typography sx={{ lineHeight: 1 }}>0</Typography>
                 </TableCell>
               </TableRow>
@@ -911,7 +911,7 @@ function TeenPlay({ setExpo }) {
               alignItems: "center",
               justifyContent: "center",
               fontWeight: 800,
-              fontSize: "0.95rem",
+              fontSize: "0.96rem",
             }}
             title={res === "A" ? "Player A" : "Player B"}
           >
