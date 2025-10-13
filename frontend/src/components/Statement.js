@@ -1,10 +1,7 @@
-import React, { useEffect, useState } from "react";
-// If your axios helper is at src/services/api.js, change the next line to:
-// import axios from "../services/api";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "../services/api";
 import {
   Box,
-  Typography,
   Table,
   TableBody,
   TableCell,
@@ -27,35 +24,8 @@ const Statement = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadedAdminUsers, setLoadedAdminUsers] = useState(false);
 
-  // init: figure out if admin & load users list if so
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const res = await axios.get("/api/users/");
-        const list = Array.isArray(res.data) ? res.data : [];
-
-        // ✅ Detect if current user is admin
-        const currentUser = list.find((u) => u.is_self);
-        const admin = currentUser?.is_superuser || false;
-
-        setIsAdmin(admin);
-        setUsers(list.filter((u) => !u.is_superuser));
-        setLoadedAdminUsers(true);
-
-        // ✅ Fetch own data immediately if not admin
-        if (!admin) {
-          await fetchStatement();
-        }
-      } catch (e) {
-        console.error("Error loading users:", e);
-        setLoadedAdminUsers(true);
-      }
-    };
-    init();
-  }, []);
-
-
-  const fetchStatement = async (userId = null) => {
+  // ✅ Memoized fetch function to prevent re-creation
+  const fetchStatement = useCallback(async (userId = null) => {
     try {
       let url = "/api/ledger/statement/";
       if (isAdmin && userId) url += `?user_id=${userId}`;
@@ -68,7 +38,32 @@ const Statement = () => {
       console.error("Error fetching statement:", err);
       setRows([]);
     }
-  };
+  }, [isAdmin]); // depends only on isAdmin
+
+  // ✅ useEffect now includes fetchStatement
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const res = await axios.get("/api/users/");
+        const list = Array.isArray(res.data) ? res.data : [];
+
+        const currentUser = list.find((u) => u.is_self);
+        const admin = currentUser?.is_superuser || false;
+
+        setIsAdmin(admin);
+        setUsers(list.filter((u) => !u.is_superuser));
+        setLoadedAdminUsers(true);
+
+        if (!admin) {
+          await fetchStatement();
+        }
+      } catch (e) {
+        console.error("Error loading users:", e);
+        setLoadedAdminUsers(true);
+      }
+    };
+    init();
+  }, [fetchStatement]); // ✅ ESLint happy now
 
   const handleUserChange = (e) => {
     const userId = e.target.value;
@@ -78,19 +73,12 @@ const Statement = () => {
   };
 
   const fmt = (v) =>
-    (v === null || v === undefined || v === "") ? "0.00" : Number(v).toFixed(2);
+    v === null || v === undefined || v === "" ? "0.00" : Number(v).toFixed(2);
 
   return (
-    <Box
-      sx={{
-        backgroundColor: "#e8e8e8",
-        minHeight: "100vh",
-        p: 2,
-      }}
-    >
-       <SectionHeader title="💰 My Account Statement" />
+    <Box sx={{ backgroundColor: "#e8e8e8", minHeight: "100vh", p: 2 }}>
+      <SectionHeader title="My Account Statement" />
 
-      {/* Admin user dropdown */}
       {isAdmin && users.length > 0 && (
         <Box sx={{ display: "flex", justifyContent: "center", mb: 2, mt: 2 }}>
           <FormControl sx={{ minWidth: 260 }}>
@@ -118,14 +106,13 @@ const Statement = () => {
         </Box>
       )}
 
-      {/* Table */}
       <TableContainer
         component={Paper}
         sx={{
           borderRadius: "6px",
           boxShadow: "0 3px 8px rgba(0,0,0,0.1)",
           overflowX: "auto",
-          mt: 2
+          mt: 2,
         }}
       >
         <Table>
@@ -135,39 +122,19 @@ const Statement = () => {
                 background: "linear-gradient(to right, #00332b, #004d40)",
               }}
             >
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                DATE
-              </TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                DESCRIPTION
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{ color: "white", fontWeight: "bold" }}
-              >
-                Prev. Bal
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{ color: "white", fontWeight: "bold" }}
-              >
-                CREDIT
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{ color: "white", fontWeight: "bold" }}
-              >
-                DEBIT
-              </TableCell>
-              <TableCell
-                align="right"
-                sx={{ color: "white", fontWeight: "bold" }}
-              >
-                BALANCE
-              </TableCell>
+              {["DATE", "DESCRIPTION", "Prev. Bal", "CREDIT", "DEBIT", "BALANCE"].map(
+                (head, i) => (
+                  <TableCell
+                    key={i}
+                    align={i >= 2 ? "right" : "left"}
+                    sx={{ color: "white", fontWeight: "bold" }}
+                  >
+                    {head}
+                  </TableCell>
+                )
+              )}
             </TableRow>
           </TableHead>
-
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>

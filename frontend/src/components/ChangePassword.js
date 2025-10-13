@@ -57,7 +57,7 @@ const ChangePassword = () => {
         backgroundColor: "#f4f4f4",
         minHeight: "100vh",
         display: "flex",
-        alignItems: "center",
+        alignItems: "start",
         justifyContent: "center",
         p: 2,
       }}

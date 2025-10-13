@@ -32,7 +32,7 @@ function Casino() {
       <Grid
         container
         spacing={{ xs: 2, sm: 3, md: 4 }}
-        justifyContent="flex-start"
+        justifyContent="space-evenly"
         alignItems="center"
       >
         {games.map((game, index) => (
@@ -53,8 +53,8 @@ function Casino() {
               src={game.src}
               alt={game.title}
               sx={{
-                width: { xs: "120px", sm: "160px", md: "160px" },
-                height: { xs: "90px", sm: "110px", md: "100px" },
+                width: { xs: "110px", sm: "130px", md: "160px" },
+                height: { xs: "90px", sm: "90px", md: "100px" },
                 borderRadius: "8px",
                 boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
                 transition: "transform 0.3s ease, box-shadow 0.3s ease",

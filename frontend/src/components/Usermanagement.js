@@ -26,7 +26,9 @@ function Usermanagement() {
   const navigate = useNavigate();
   const open = Boolean(anchorEl);
 
-  // Fetch users
+  /** ───────────────────────────────
+   * 📦 Fetch All Users
+   * ─────────────────────────────── */
   const fetchUsers = async () => {
     try {
       const res = await api.get("/api/users/");
@@ -40,7 +42,9 @@ function Usermanagement() {
     fetchUsers();
   }, []);
 
-  // Menu control
+  /** ───────────────────────────────
+   * ⚙️ Menu Handlers
+   * ─────────────────────────────── */
   const handleMenuOpen = (event, user) => {
     setAnchorEl(event.currentTarget);
     setSelectedUser(user);
@@ -50,7 +54,9 @@ function Usermanagement() {
     setSelectedUser(null);
   };
 
-  // ✅ Add User (with username, password, and coins + copy button)
+  /** ───────────────────────────────
+   * ➕ Create New User
+   * ─────────────────────────────── */
   const handleAddUser = async () => {
     const { value: formValues } = await Swal.fire({
       title: "Create New User",
@@ -77,7 +83,6 @@ function Usermanagement() {
       const res = await api.post("/api/users/", formValues);
       const details = res.data.login_details;
 
-      // Text to copy
       const copyText = `Dear Client, your login details are:\n\nURL: ${details.url}\nChip ID: ${details.chip_code}\nUsername: ${details.username}\nPassword: ${details.password}`;
 
       await Swal.fire({
@@ -109,7 +114,9 @@ function Usermanagement() {
     }
   };
 
-  // Deposit
+  /** ───────────────────────────────
+   * 💰 Deposit / Withdraw / Reset / Edit
+   * ─────────────────────────────── */
   const handleDeposit = async () => {
     const { value: amount } = await Swal.fire({
       title: "Deposit Coins",
@@ -122,19 +129,16 @@ function Usermanagement() {
     });
 
     if (!amount) return;
-
     try {
       await api.post(`/api/users/${selectedUser.id}/deposit/`, { amount });
       Swal.fire("Success", `₹${amount} added successfully`, "success");
       fetchUsers();
     } catch (err) {
-      console.error("Deposit error:", err);
       Swal.fire("Error", "Failed to deposit coins", "error");
     }
     handleMenuClose();
   };
 
-  // Withdraw
   const handleWithdraw = async () => {
     const { value: amount } = await Swal.fire({
       title: "Withdraw Coins",
@@ -147,19 +151,16 @@ function Usermanagement() {
     });
 
     if (!amount) return;
-
     try {
       const res = await api.post(`/api/users/${selectedUser.id}/withdraw/`, { amount });
       Swal.fire("Success", res.data.message, "success");
       fetchUsers();
     } catch (err) {
-      console.error("Withdraw error:", err);
       Swal.fire("Error", err.response?.data?.error || "Failed to withdraw", "error");
     }
     handleMenuClose();
   };
 
-  // ✅ Reset Password (with Copy button)
   const handleResetPassword = async () => {
     try {
       const res = await api.post(`/api/users/${selectedUser.id}/reset_password/`);
@@ -184,13 +185,11 @@ function Usermanagement() {
         },
       });
     } catch (err) {
-      console.error("Reset error:", err);
       Swal.fire("Error", "Failed to reset password", "error");
     }
     handleMenuClose();
   };
 
-  // Edit Profile
   const handleEditProfile = async () => {
     const { value: username } = await Swal.fire({
       title: "Edit Username",
@@ -203,72 +202,90 @@ function Usermanagement() {
     });
 
     if (!username) return;
-
     try {
       const res = await api.post(`/api/users/${selectedUser.id}/edit_name/`, { username });
       Swal.fire("Updated", res.data.message, "success");
       fetchUsers();
     } catch (err) {
-      console.error("Edit name error:", err);
       Swal.fire("Error", "Failed to update name", "error");
     }
     handleMenuClose();
   };
 
-  // Statement
   const handleStatement = () => {
     handleMenuClose();
     navigate("/statement");
   };
 
+  /** ───────────────────────────────
+   * 🎨 UI Rendering
+   * ─────────────────────────────── */
   return (
-    <Box sx={{ padding: 3 }}>
+    <Box sx={{ backgroundColor: "#e8e8e8", minHeight: "100vh", p: 2 }}>
+      <SectionHeader title="👥 User Management" />
 
-        <SectionHeader title="👥 User Management" mb="2" />
-
-      {/* Add User Button */}
       <Button
         variant="contained"
         sx={{
           backgroundColor: "#16a34a",
           "&:hover": { backgroundColor: "#15803d" },
           mb: 2,
-          mt: 2
+          mt: 2,
         }}
         onClick={handleAddUser}
       >
         + Add User
       </Button>
 
-      {/* Table */}
       <TableContainer
         component={Paper}
         sx={{
-          backgroundColor: "#d1ceceff",
-          color: "#0c0c0cff",
-          borderRadius: 2,
+          borderRadius: "6px",
+          boxShadow: "0 3px 8px rgba(0,0,0,0.1)",
+          overflowX: "auto",
+          mt: 2,
         }}
       >
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell sx={{ color: "#000", fontWeight: "bold" }}>Username</TableCell>
-              <TableCell sx={{ color: "#000", fontWeight: "bold" }}>Balance</TableCell>
-              <TableCell sx={{ color: "#000", fontWeight: "bold" }}>Actions</TableCell>
+            <TableRow sx={{ background: "linear-gradient(to right, #00332b, #004d40)" }}>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>USERNAME</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>BALANCE</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }}>ACTIONS</TableCell>
             </TableRow>
           </TableHead>
+
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id} hover>
-                <TableCell sx={{ color: "#000" }}>{user.username}</TableCell>
-                <TableCell sx={{ color: "#000" }}>₹{parseFloat(user.balance).toFixed(2)}</TableCell>
-                <TableCell>
-                  <IconButton color="inherit" onClick={(e) => handleMenuOpen(e, user)}>
-                    <MoreVertIcon sx={{ color: "#000" }} />
-                  </IconButton>
+            {users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+                  No users found.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              users.map((user, i) => (
+                <TableRow
+                  key={user.id}
+                  hover
+                  sx={{
+                    backgroundColor: i % 2 === 0 ? "#f9f9f9" : "#ffffff",
+                    "&:hover": { backgroundColor: "#e6f7f3" },
+                  }}
+                >
+                  <TableCell sx={{ color: "#004d80", fontWeight: 500 }}>
+                    {user.username}
+                  </TableCell>
+                  <TableCell sx={{ color: "#000" }}>
+                    ₹{parseFloat(user.balance).toFixed(2)}
+                  </TableCell>
+                  <TableCell align="center">
+                    <IconButton color="inherit" onClick={(e) => handleMenuOpen(e, user)}>
+                      <MoreVertIcon sx={{ color: "#000" }} />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>

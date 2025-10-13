@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Typography, Box, Container, Dialog, DialogTitle, DialogContent, DialogActions, IconButton } from "@mui/material";
-import CloseIcon from '@mui/icons-material/Close';
+import { Button, Typography, Box, Container, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import SectionHeader from "./common_components/PageTitle";
 
 const Rules = () => {
@@ -1375,11 +1374,8 @@ const Rules = () => {
         }}
       >
         <DialogTitle>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box display="flex" justifyContent="center" alignItems="center">
             <SectionHeader title="Welcome to JSM97 Games" />
-            <IconButton onClick={handleClose} size="small">
-              <CloseIcon />
-            </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent>
