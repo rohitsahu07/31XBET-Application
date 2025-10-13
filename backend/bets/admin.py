@@ -1,28 +1,15 @@
+# backend/bets/admin.py
 from django.contrib import admin
-from .models import BetRecord, RoundFeed
+from .models import Round, Bet
 
-
-@admin.register(BetRecord)
-class BetRecordAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "round_id", "player", "amount", "created_at")
-    list_filter = ("player", "created_at")
-    search_fields = ("round_id", "user__username")
-    ordering = ("-created_at",)
-
-
-@admin.register(RoundFeed)
-class RoundFeedAdmin(admin.ModelAdmin):
-    list_display = (
-        "id",
-        "item_type",
-        "round_id",
-        "official_winner",
-        "player_choice",
-        "bet_amount",
-        "resolver",
-        "final_result",
-        "created_at",
-    )
-    list_filter = ("item_type", "resolver", "official_winner")
+@admin.register(Round)
+class RoundAdmin(admin.ModelAdmin):
+    list_display = ("round_id", "game", "winner", "resolver", "started_at", "ended_at")
     search_fields = ("round_id",)
-    ordering = ("-created_at",)
+    list_filter = ("game", "resolver", "winner")
+
+@admin.register(Bet)
+class BetAdmin(admin.ModelAdmin):
+    list_display = ("user", "round", "selection", "stake", "status", "payout", "net", "created_at")
+    search_fields = ("user__username", "round__round_id")
+    list_filter = ("status", "selection")

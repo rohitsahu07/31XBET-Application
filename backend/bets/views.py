@@ -1,3 +1,5 @@
+# backend/bets/views.py
+
 from decimal import Decimal, InvalidOperation
 import random, time
 from django.db import transaction, models
@@ -7,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 
-from .models import BetRecord, RoundFeed
+from .models import Bet, Round
 from ledger.models import Transaction
 from users.models import User
 from .engine import (
@@ -30,10 +32,42 @@ def _ts_to_dt(ts: int):
         timezone.get_current_timezone(),
     )
 
-def _trim_feed(limit: int = 10):
-    ids = list(RoundFeed.objects.order_by("-created_at").values_list("id", flat=True)[:limit])
-    if ids:
-        RoundFeed.objects.exclude(id__in=ids).delete()
+def _ensure_round_from_engine(engine_obj) -> Round:
+    """
+    Ensure a Round row exists/updated from CURRENT_ROUND engine dict.
+    We do NOT set winner here (engine reveals winner later).
+    """
+    if not engine_obj:
+        raise ValueError("Engine round not initialized")
+
+    round_id = str(engine_obj["round_id"])
+    defaults = {
+        "game": "tpt20",
+        "started_at": _ts_to_dt(engine_obj["start_time"]) if engine_obj.get("start_time") else None,
+        "player_a_cards": engine_obj.get("player_a_full") or None,
+        "player_b_cards": engine_obj.get("player_b_full") or None,
+    }
+    # get or create
+    r, _ = Round.objects.get_or_create(round_id=round_id, defaults=defaults)
+
+    # best-effort sync (non-destructive)
+    changed = False
+    if defaults["started_at"] and not r.started_at:
+        r.started_at = defaults["started_at"]; changed = True
+    if defaults["player_a_cards"] and not r.player_a_cards:
+        r.player_a_cards = defaults["player_a_cards"]; changed = True
+    if defaults["player_b_cards"] and not r.player_b_cards:
+        r.player_b_cards = defaults["player_b_cards"]; changed = True
+
+    # If engine already has official result, persist winner/ended_at
+    if engine_obj.get("official_result") and not r.winner:
+        r.winner = engine_obj["official_result"]; changed = True
+        r.ended_at = timezone.now(); changed = True
+
+    if changed:
+        r.save(update_fields=["started_at", "player_a_cards", "player_b_cards", "winner", "ended_at"])
+    return r
+
 
 # ─────────────────────────────────────────────
 # Profile (balance + expo)
@@ -41,7 +75,7 @@ def _trim_feed(limit: int = 10):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def profile(request):
-    user = request.user
+    user: User = request.user
     if user.is_superuser:
         return Response({
             "id": user.id,
@@ -55,8 +89,14 @@ def profile(request):
     # calculate open exposure (bets in current round only)
     global CURRENT_ROUND
     current_round_id = CURRENT_ROUND["round_id"] if CURRENT_ROUND else None
-    open_bets = BetRecord.objects.filter(user=user, round_id=current_round_id)
-    expo_sum = open_bets.aggregate(total=models.Sum("amount"))["total"] or Decimal("0.00")
+
+    # Bet model: open = status=PLACED; filter via related round.round_id
+    open_bets = Bet.objects.filter(
+        user=user,
+        status="PLACED",
+        round__round_id=str(current_round_id) if current_round_id else None,
+    )
+    expo_sum = open_bets.aggregate(total=models.Sum("stake"))["total"] or Decimal("0.00")
 
     return Response({
         "id": user.id,
@@ -66,6 +106,7 @@ def profile(request):
         "chips": f"{user.balance:.2f}",
         "expo": f"{expo_sum:.2f}",
     })
+
 
 # ─────────────────────────────────────────────
 # Current Round
@@ -105,6 +146,7 @@ def current_round(request):
 
     return Response(payload, status=status.HTTP_200_OK)
 
+
 # ─────────────────────────────────────────────
 # Place Bet
 # ─────────────────────────────────────────────
@@ -115,7 +157,7 @@ def place_bet(request):
         round_id = request.data.get("round_id")
         player = request.data.get("player")
         amount_raw = request.data.get("amount")
-        user = request.user
+        user: User = request.user
 
         try:
             amount = Decimal(str(amount_raw))
@@ -131,6 +173,10 @@ def place_bet(request):
             if CURRENT_ROUND is None:
                 CURRENT_ROUND = new_round_state(now)
 
+            # hard sync round ids to avoid cross-round post
+            if str(CURRENT_ROUND["round_id"]) != str(round_id):
+                return Response({"error": "Round mismatch"}, status=400)
+
             sec, phase, _ = calc_cycle(now)
             if phase != "bet":
                 return Response({"error": "Bet window closed"}, status=400)
@@ -139,53 +185,33 @@ def place_bet(request):
             if user.balance < amount:
                 return Response({"error": "Insufficient balance"}, status=400)
 
-            # biased result selection
+            # biased result selection (preserve your original weights)
             result = (
                 random.choices(["A", "B"], weights=[3, 7])[0]
                 if player == "A"
                 else random.choices(["A", "B"], weights=[7, 3])[0]
             )
 
+            # Make sure a Round row exists (no winner set during bet phase)
+            round_row = _ensure_round_from_engine(CURRENT_ROUND)
+
             with transaction.atomic():
-                # Deduct chips
+                # Deduct chips (🟢 no Transaction row for stake)
                 prev_bal = user.balance
                 new_bal = prev_bal - amount
                 user.balance = new_bal
                 user.save(update_fields=["balance"])
 
-                # Transaction entry
-                Transaction.objects.create(
-                    from_user=None,
-                    to_user=user,
-                    amount=amount,
-                    type="bet",
-                    description=f"Bet placed on Player {player} (Round {round_id})",
-                    prev_balance=prev_bal,
-                    debit=amount,
-                    credit=Decimal("0.00"),
-                    balance=new_bal,
+                # Bet row (open/placed)
+                Bet.objects.create(
+                    user=user,
+                    round=round_row,
+                    selection=player,
+                    stake=amount,
+                    status="PLACED",
                 )
 
-                # Bet record
-                BetRecord.objects.create(
-                    user=user, round_id=round_id, player=player, amount=amount
-                )
-
-                RoundFeed.objects.create(
-                    item_type="Place Bet",
-                    round_id=round_id,
-                    start_time=_ts_to_dt(CURRENT_ROUND["start_time"]),
-                    end_time=timezone.now(),
-                    player_a_cards=CURRENT_ROUND["player_a_full"],
-                    player_b_cards=CURRENT_ROUND["player_b_full"],
-                    official_winner=CURRENT_ROUND["official_result"],
-                    player_choice=player,
-                    bet_amount=amount,
-                    resolver="biased",
-                    final_result=result,
-                )
-                _trim_feed(10)
-
+        # SAME RESPONSE SHAPE
         return Response(
             {
                 "message": "Bet placed successfully",
@@ -206,16 +232,24 @@ def place_bet(request):
 # ─────────────────────────────────────────────
 @api_view(["GET"])
 def last_ten_feed(request):
-    """Return the last 10 finished rounds for the frontend history display."""
-    items = (
-        RoundFeed.objects.order_by("-created_at")
-        .values("round_id", "final_result", "official_winner", "created_at")[:10]
+    """
+    Return the last 10 finished rounds for the frontend history display.
+    We now read from Round (winner set when engine finalizes).
+    Response SHAPE is preserved:
+      {"items": [{"round_id": "...", "final_result": "A/B", "official_winner": "A/B", "created_at": ...}, ...]}
+    """
+    items_qs = (
+        Round.objects.filter(winner__isnull=False)
+        .order_by("-created_at")
+        .values("round_id", "winner", "created_at")[:10]
     )
+
     formatted = []
-    for it in items:
+    for it in items_qs:
         formatted.append({
             "round_id": it["round_id"],
-            "final_result": it["final_result"] or it["official_winner"],
+            "final_result": it["winner"],         # mirror the previous behavior
+            "official_winner": it["winner"],      # (we used to store both; now winner is official)
             "created_at": it["created_at"],
         })
     return Response({"items": formatted}, status=200)

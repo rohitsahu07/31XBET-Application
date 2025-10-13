@@ -1,12 +1,15 @@
+# backend/bets/engine.py
+
 from __future__ import annotations
 import random, threading, time
 from typing import List, Optional, Tuple
 from datetime import datetime
 from decimal import Decimal
+
 from django.db import transaction
 from django.utils import timezone
-from .models import RoundFeed
-from bets.models import BetRecord
+
+from .models import Round, Bet
 from users.models import User
 from ledger.models import Transaction
 
@@ -57,6 +60,7 @@ def _compare_teen_patti(a: List[str], b: List[str]) -> str:
         v = sorted(vals)
         if len(set(v)) != 3:
             return False,[]
+        # A-2-3 case
         if v == [2,3,14]:
             return True,[3,2,1]
         ok = v[0]+1==v[1] and v[1]+1==v[2]
@@ -70,15 +74,15 @@ def _compare_teen_patti(a: List[str], b: List[str]) -> str:
         for v in vals: counts[v] = counts.get(v,0)+1
         flush = len(set(suits)) == 1
         seq, seq_tie = is_seq(vals)
-        if len(counts) == 1: return (6,[sv[0]])        
-        if flush and seq:    return (5,seq_tie)
-        if seq:              return (4,seq_tie)
-        if flush:            return (3,sv)
-        if len(counts) == 2:
+        if len(counts) == 1: return (6,[sv[0]])        # trail
+        if flush and seq:    return (5,seq_tie)        # pure sequence
+        if seq:              return (4,seq_tie)        # sequence
+        if flush:            return (3,sv)             # flush
+        if len(counts) == 2:                           # pair
             pair = sorted(counts, key=lambda k:(counts[k],k), reverse=True)[0]
             kicker = max(v for v in vals if v != pair)
             return (2,[pair,kicker])
-        return (1,sv)
+        return (1,sv)                                   # high card
 
     sa, sb = score(a), score(b)
     if sa[0] != sb[0]:
@@ -89,6 +93,57 @@ def _compare_teen_patti(a: List[str], b: List[str]) -> str:
         vb = tB[i] if i < len(tB) else 0
         if va != vb: return "A" if va > vb else "B"
     return random.choice(["A","B"])
+
+# ─────────────────────────────────────────────
+# Round persistence helpers
+# ─────────────────────────────────────────────
+def _ensure_round_from_engine(engine_obj: dict) -> Round:
+    """
+    Ensure a Round row exists for engine's CURRENT_ROUND snapshot.
+    Non-destructive sync: we only fill missing fields.
+    """
+    if not engine_obj:
+        raise ValueError("Engine round not initialized")
+    rid = str(engine_obj["round_id"])
+    defaults = {
+        "game": "tpt20",
+        "started_at": ts_to_dt(engine_obj["start_time"]) if engine_obj.get("start_time") else None,
+        "player_a_cards": engine_obj.get("player_a_full") or None,
+        "player_b_cards": engine_obj.get("player_b_full") or None,
+    }
+    row, created = Round.objects.get_or_create(round_id=rid, defaults=defaults)
+    changed = False
+    if defaults["started_at"] and not row.started_at:
+        row.started_at = defaults["started_at"]; changed = True
+    if defaults["player_a_cards"] and not row.player_a_cards:
+        row.player_a_cards = defaults["player_a_cards"]; changed = True
+    if defaults["player_b_cards"] and not row.player_b_cards:
+        row.player_b_cards = defaults["player_b_cards"]; changed = True
+    if changed:
+        row.save(update_fields=["started_at", "player_a_cards", "player_b_cards"])
+    return row
+
+def _finalize_round(engine_finished: dict, end_time_ts: int) -> Round:
+    """
+    Persist engine final to Round: set winner, ended_at, resolver.
+    """
+    rid = str(engine_finished["round_id"])
+    winner = engine_finished["official_result"]
+    ended_at = ts_to_dt(end_time_ts)
+
+    round_row = _ensure_round_from_engine(engine_finished)
+    updates = {}
+    if not round_row.winner:
+        updates["winner"] = winner
+    if not round_row.ended_at:
+        updates["ended_at"] = ended_at
+    # Resolver: the engine set the official result
+    updates["resolver"] = "official"
+    if updates:
+        for k, v in updates.items():
+            setattr(round_row, k, v)
+        round_row.save(update_fields=list(updates.keys()))
+    return round_row
 
 # ─────────────────────────────────────────────
 # Round lifecycle
@@ -136,93 +191,58 @@ def mask_cards_for_step(full_cards: List[str], step: int, player: str) -> List[s
     return [full_cards[i] if show[i] else FLIPPED for i in range(3)]
 
 # ─────────────────────────────────────────────
-# Feed persistence
-# ─────────────────────────────────────────────
-def _trim_feed(limit: int = 10):
-    ids = list(RoundFeed.objects.order_by("-created_at").values_list("id", flat=True)[:limit])
-    if ids:
-        RoundFeed.objects.exclude(id__in=ids).delete()
-
-def persist_engine_item(round_snapshot: dict, end_time_ts: int):
-    with transaction.atomic():
-        RoundFeed.objects.create(
-            item_type="Engine Final",
-            round_id=round_snapshot["round_id"],
-            start_time=ts_to_dt(round_snapshot["start_time"]),
-            end_time=ts_to_dt(end_time_ts),
-            player_a_cards=round_snapshot["player_a_full"],
-            player_b_cards=round_snapshot["player_b_full"],
-            official_winner=round_snapshot["official_result"],
-            final_result=round_snapshot["official_result"],
-            resolver="engine",
-        )
-        _trim_feed(10)
-
-# ─────────────────────────────────────────────
 # Round settlement logic
 # ─────────────────────────────────────────────
-def settle_round(round_id: str, winner: str):
-    """Settle all bets for this round"""
-    print(f"[settle_round] Settling round {round_id} (winner={winner})")
-    bets = BetRecord.objects.filter(round_id=round_id)
-    for bet in bets:
-        user = bet.user
-        if not user:
-            continue
+def settle_round(round_row: Round):
+    """
+    Settle all PLACED bets for this round:
+    - update Bet.status/payout/net/settled_at using Bet.settle()
+    - create a Transaction ONLY for wins (credit payout)
+    - do NOT create transactions for losses (no money move at settle time)
+    """
+    if not round_row or not round_row.winner:
+        return
 
-        win = bet.player == winner
-        with transaction.atomic():
+    rid = round_row.round_id
+    winner = round_row.winner
+    print(f"[settle_round] Settling round {rid} (winner={winner})")
+
+    bets = Bet.objects.select_for_update().filter(round=round_row, status="PLACED")
+    now = timezone.now()
+
+    with transaction.atomic():
+        for bet in bets:
+            user: User = bet.user
             prev_bal = user.balance
-            if win:
-                payout = bet.amount * Decimal("1.96")
-                new_bal = prev_bal + payout
+
+            # compute settlement in-memory
+            bet.settle(winner=winner, return_ratio=Decimal("1.96"))
+            bet.settled_at = now
+            bet.save(update_fields=["status", "payout", "net", "settled_at"])
+
+            if bet.status == "WON" and bet.payout > 0:
+                new_bal = prev_bal + bet.payout
                 user.balance = new_bal
                 user.save(update_fields=["balance"])
 
-                # ✅ NEW: Create an engine-generated BetRecord entry for audit
-                BetRecord.objects.create(
-                    user=user,
-                    round_id=round_id,
-                    player=bet.player,
-                    amount=payout,
-                    is_engine_generated=True,  # ✅ Mark as engine-created
-                )
-
+                # 💰 Money movement for wins only
                 Transaction.objects.create(
                     from_user=None,
                     to_user=user,
-                    amount=payout,
+                    amount=bet.payout,
                     type="win",
-                    description=f"Won round {round_id} on Player {bet.player}",
+                    description=f"Won round {rid} on Player {bet.selection}",
                     prev_balance=prev_bal,
-                    credit=payout,
+                    credit=bet.payout,
                     debit=Decimal("0.00"),
                     balance=new_bal,
                 )
-                print(f"[settle_round] ✅ {user.username} won +{payout}")
+                print(f"[settle_round] ✅ {user.username} won +{bet.payout}")
             else:
-                # ✅ NEW: Also log engine-generated loss entry (if needed)
-                BetRecord.objects.create(
-                    user=user,
-                    round_id=round_id,
-                    player=bet.player,
-                    amount=bet.amount,
-                    is_engine_generated=True,  # ✅ Mark as engine-created
-                )
+                # Lost: no money movement at settle time (stake was debited on placement)
+                print(f"[settle_round] ❌ {user.username} lost {bet.stake}")
 
-                Transaction.objects.create(
-                    from_user=None,
-                    to_user=user,
-                    amount=bet.amount,
-                    type="loss",
-                    description=f"Lost round {round_id} on Player {bet.player}",
-                    prev_balance=prev_bal,
-                    credit=Decimal("0.00"),
-                    debit=Decimal("0.00"),
-                    balance=prev_bal,
-                )
-                print(f"[settle_round] ❌ {user.username} lost {bet.amount}")
-    print(f"[settle_round] Round {round_id} settled.")
+    print(f"[settle_round] Round {rid} settled.")
 
 # ─────────────────────────────────────────────
 # Engine loop
@@ -232,30 +252,35 @@ def _engine_loop():
     while True:
         time.sleep(0.5)
         now = int(time.time())
-        to_persist = None
+
+        finished = None  # ✅ guard so we only use it if a rollover happened
+
         with _LOCK:
             if CURRENT_ROUND is None:
                 CURRENT_ROUND = new_round_state(now)
-                continue
-            elapsed = now - CURRENT_ROUND["start_time"]
-            if elapsed >= CYCLE_SECONDS:
-                finished = {
-                    "round_id": CURRENT_ROUND["round_id"],
-                    "start_time": CURRENT_ROUND["start_time"],
-                    "player_a_full": CURRENT_ROUND["player_a_full"],
-                    "player_b_full": CURRENT_ROUND["player_b_full"],
-                    "official_result": CURRENT_ROUND["official_result"],
-                    "skip_engine_feed": CURRENT_ROUND.get("skip_engine_feed", False),
-                }
-                CURRENT_ROUND = new_round_state(now)
-                if not finished["skip_engine_feed"]:
-                    to_persist = finished
-                    settle_round(finished["round_id"], finished["official_result"])
-        if to_persist:
+            else:
+                elapsed = now - CURRENT_ROUND["start_time"]
+                if elapsed >= CYCLE_SECONDS:
+                    # snapshot old round and start a new one
+                    finished = {
+                        "round_id": CURRENT_ROUND["round_id"],
+                        "start_time": CURRENT_ROUND["start_time"],
+                        "player_a_full": CURRENT_ROUND["player_a_full"],
+                        "player_b_full": CURRENT_ROUND["player_b_full"],
+                        "official_result": CURRENT_ROUND["official_result"],
+                        "skip_engine_feed": CURRENT_ROUND.get("skip_engine_feed", False),
+                    }
+                    CURRENT_ROUND = new_round_state(now)
+
+        # ✅ Only finalize/settle if we actually rolled over
+        if finished:
+            rid = str(finished["round_id"])
             try:
-                persist_engine_item(to_persist, end_time_ts=now)
+                round_row = _finalize_round(finished, end_time_ts=now)
+                if not finished.get("skip_engine_feed", False):
+                    settle_round(round_row)
             except Exception as e:
-                print(f"[engine] persist ENGINE item failed: {e}")
+                print(f"[engine] finalize/settle failed for round {rid}: {e}")
 
 def start_engine():
     global _ENGINE_STARTED
