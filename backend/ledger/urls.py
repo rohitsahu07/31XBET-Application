@@ -1,16 +1,16 @@
-# backend/ledger/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import LedgerViewSet, StatementView
+from .views import LedgerViewSet, StatementView, BetLedgerView
 
-# DRF router for normal ledger records
+# DRF router for raw transactions (optional list/grid views)
 router = DefaultRouter()
-router.register(r'ledger', LedgerViewSet, basename='ledger')  # renamed for clarity
+router.register(r'ledger', LedgerViewSet, basename='ledger')
 
 urlpatterns = [
-    # ✅ API endpoint for Statement
+    # ✅ Account Statement (combined: transfers + bets)
     path('statement/', StatementView.as_view(), name='statement'),
-
-    # ✅ Include DRF router (will create /api/ledger/ledger/ endpoints)
+    # ✅ MY LEDGER (bets only, profit/loss)
+    path('my-ledger/', BetLedgerView.as_view(), name='my-ledger'),
+    # ✅ Router endpoints for raw Transaction model
     path('', include(router.urls)),
 ]

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "../services/api";
 import {
   Box,
@@ -19,10 +19,9 @@ import BackToMainMenuButton from "./common_components/BackToMenuBtn";
 import SectionHeader from "./common_components/PageTitle";
 
 const Ledger = () => {
-  const [records, setRecords] = useState([]);
+  const [rows, setRows] = useState([]);          // bets-only endpoint payload
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState("");
-  const [summary, setSummary] = useState({ totalWin: 0, totalLoss: 0, net: 0 });
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -30,68 +29,43 @@ const Ledger = () => {
   // Fetch users on mount
   // ────────────────────────────────
   useEffect(() => {
-    fetchUsers();
+    (async () => {
+      try {
+        const res = await axios.get("/api/users/");
+        const allUsers = res.data || [];
+        const current = allUsers.find((u) => u.is_self);
+        const admin = current?.is_superuser || false;
+        setIsAdmin(admin);
+        setUsers(allUsers.filter((u) => !u.is_superuser));
+
+        if (!admin && current?.id) {
+          await fetchLedger(current.id, false);
+        }
+      } catch (err) {
+        console.error("Error fetching users:", err);
+      }
+    })();
   }, []);
 
-  const fetchUsers = async () => {
-    try {
-      const res = await axios.get("/api/users/");
-      const allUsers = res.data || [];
-
-      const current = allUsers.find((u) => u.is_self);
-      const admin = current?.is_superuser || false;
-      setIsAdmin(admin);
-      setUsers(allUsers.filter((u) => !u.is_superuser));
-
-      // ✅ If not admin → auto-fetch own ledger
-      if (!admin && current?.id) {
-        await fetchLedger(current.id);
-      }
-    } catch (err) {
-      console.error("Error fetching users:", err);
-    }
-  };
-
   // ────────────────────────────────
-  // Fetch ledger statement
+  // Fetch MY LEDGER (bets only)
   // ────────────────────────────────
-  const fetchLedger = async (userId) => {
-    if (isAdmin && !userId) {
-      setRecords([]);
-      setSummary({ totalWin: 0, totalLoss: 0, net: 0 });
+  const fetchLedger = async (userId, adminMode = isAdmin) => {
+    if (adminMode && !userId) {
+      setRows([]);
       return;
     }
-
     setLoading(true);
     try {
-      const url = isAdmin
-        ? `/api/ledger/statement/?user_id=${userId}`
-        : `/api/ledger/statement/`;
-
+      const url = adminMode
+        ? `/api/ledger/my-ledger/?user_id=${userId}`
+        : `/api/ledger/my-ledger/`;
       const res = await axios.get(url);
-      const data = Array.isArray(res.data) ? res.data : res.data.ledger || [];
-
-      console.log("📊 [Ledger] Received", data.length, "rows from backend");
-
-      // Calculate totals
-      const totalWin = data.reduce(
-        (sum, r) => sum + parseFloat(r.credit || 0),
-        0
-      );
-      const totalLoss = data.reduce(
-        (sum, r) => sum + parseFloat(r.debit || 0),
-        0
-      );
-      const net = (totalWin - totalLoss).toFixed(2);
-
-      setRecords(data);
-      setSummary({
-        totalWin: totalWin.toFixed(2),
-        totalLoss: totalLoss.toFixed(2),
-        net,
-      });
+      const data = Array.isArray(res.data) ? res.data : [];
+      setRows(data);
     } catch (err) {
-      console.error("❌ Error fetching ledger:", err);
+      console.error("❌ Error fetching MY LEDGER:", err);
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -100,15 +74,53 @@ const Ledger = () => {
   const handleUserChange = (e) => {
     const userId = e.target.value;
     setSelectedUser(userId);
-    fetchLedger(userId);
+    fetchLedger(userId, true);
   };
+
+  // ────────────────────────────────
+  // Transform to MY LEDGER table rows with Hisaab
+  // ────────────────────────────────
+  const ledgerRows = useMemo(() => {
+    // Rows are already bets-only and sorted desc by backend; recompute to be safe
+    const sorted = [...(rows || [])].sort((a, b) => {
+      const ta = new Date(a.round_time || a.date).getTime();
+      const tb = new Date(b.round_time || b.date).getTime();
+      return tb - ta;
+    });
+
+    // Compute cumulative Hisaab (oldest→newest), then flip back
+    const oldest = [...sorted].reverse();
+    let running = 0;
+    const withCalc = oldest.map((r) => {
+      const credit = parseFloat(r.credit || 0) || 0;
+      const debit  = parseFloat(r.debit  || 0) || 0;
+      running += (credit - debit);
+      return {
+        ...r,
+        _won: credit.toFixed(2),
+        _lost: debit.toFixed(2),
+        _hisaab: running.toFixed(2),
+      };
+    });
+    return withCalc.reverse().map((r) => {
+      const desc = `${r.description || "Teen Patti T20"} (${r.date || ""})`;
+      return { ...r, __desc: desc, __wonBy: r.won_by || "" };
+    });
+  }, [rows]);
+
+  const totals = useMemo(() => {
+    const won  = ledgerRows.reduce((s, r) => s + parseFloat(r._won  || 0), 0);
+    const lost = ledgerRows.reduce((s, r) => s + parseFloat(r._lost || 0), 0);
+    const net = (won - lost).toFixed(2);
+    return { won: won.toFixed(2), lost: lost.toFixed(2), net };
+  }, [ledgerRows]);
 
   // ────────────────────────────────
   // Render
   // ────────────────────────────────
   return (
     <Box sx={{ p: 3 }}>
-      <SectionHeader title="📜 LEDGER" />
+      <SectionHeader title="MY LEDGER" />
 
       {isAdmin && (
         <FormControl sx={{ mt: 2, mb: 2, minWidth: 240 }}>
@@ -142,51 +154,57 @@ const Ledger = () => {
         >
           Loading ledger data...
         </Typography>
-      ) : records.length > 0 ? (
+      ) : ledgerRows.length > 0 ? (
         <TableContainer component={Paper}>
           <Table>
             <TableHead sx={{ background: "#004d40" }}>
               <TableRow>
                 <TableCell sx={{ color: "white", fontWeight: "bold" }}>
-                  DATE
-                </TableCell>
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>
                   DESCRIPTION
                 </TableCell>
-                <TableCell align="center" sx={{ color: "white", fontWeight: "bold" }}>
-                  CREDIT
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>
+                  WON BY
                 </TableCell>
                 <TableCell align="center" sx={{ color: "white", fontWeight: "bold" }}>
-                  DEBIT
+                  WON
                 </TableCell>
                 <TableCell align="center" sx={{ color: "white", fontWeight: "bold" }}>
-                  BALANCE
+                  LOST
+                </TableCell>
+                <TableCell align="center" sx={{ color: "white", fontWeight: "bold" }}>
+                  HISAAB
                 </TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
-              {records.map((rec, idx) => (
+              {ledgerRows.map((rec, idx) => (
                 <TableRow
                   key={idx}
                   sx={{
                     backgroundColor:
-                      parseFloat(rec.credit) > 0
+                      parseFloat(rec._won) > 0
                         ? "rgba(76, 175, 80, 0.1)"
-                        : parseFloat(rec.debit) > 0
+                        : parseFloat(rec._lost) > 0
                         ? "rgba(244, 67, 54, 0.1)"
                         : "inherit",
                   }}
                 >
-                  <TableCell>{rec.date}</TableCell>
-                  <TableCell>{rec.description}</TableCell>
-                  <TableCell align="center" sx={{ color: "green", fontWeight: 600 }}>
-                    {parseFloat(rec.credit || 0).toFixed(2)}
+                  <TableCell>
+                    <span style={{ color: "#0b57d0", fontWeight: 600 }}>
+                      {rec.__desc}
+                    </span>
                   </TableCell>
-                  <TableCell align="center" sx={{ color: "red", fontWeight: 600 }}>
-                    {parseFloat(rec.debit || 0).toFixed(2)}
+                  <TableCell>{rec.__wonBy || "-"}</TableCell>
+                  <TableCell align="center" style={{ color: "green", fontWeight: 600 }}>
+                    {rec._won}
                   </TableCell>
-                  <TableCell align="center">{rec.balance}</TableCell>
+                  <TableCell align="center" style={{ color: "red", fontWeight: 600 }}>
+                    {rec._lost}
+                  </TableCell>
+                  <TableCell align="center" style={{ fontWeight: 700 }}>
+                    {rec._hisaab}
+                  </TableCell>
                 </TableRow>
               ))}
 
@@ -194,13 +212,13 @@ const Ledger = () => {
                 <TableCell sx={{ fontWeight: "bold" }}>TOTAL</TableCell>
                 <TableCell />
                 <TableCell align="center" sx={{ color: "green", fontWeight: "bold" }}>
-                  ₹ {summary.totalWin}
+                  ₹ {totals.won}
                 </TableCell>
                 <TableCell align="center" sx={{ color: "red", fontWeight: "bold" }}>
-                  ₹ {summary.totalLoss}
+                  ₹ {totals.lost}
                 </TableCell>
                 <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                  ₹ {summary.net}
+                  ₹ {totals.net}
                 </TableCell>
               </TableRow>
             </TableBody>

@@ -23,6 +23,7 @@ def build_deck():
 def draw_two_hands_unique():
     deck = build_deck()
     random.shuffle(deck)
+    # first 6 cards are unique by construction
     a = deck[:3]
     b = deck[3:6]
     return a, b
@@ -72,11 +73,11 @@ def hand_rank(cards):
     if len(cnt) == 1:
         return (6, [vals_sorted[0]])
 
-    # Pure sequence
+    # Pure sequence (straight flush)
     if is_flush and seq:
         return (5, seq_tie)
 
-    # Sequence
+    # Sequence (straight)
     if seq:
         return (4, seq_tie)
 
@@ -94,13 +95,17 @@ def hand_rank(cards):
     return (1, vals_sorted)
 
 def compare_hands(a_cards, b_cards):
+    """
+    Return 'A' or 'B'. If perfectly tied, break ties randomly (engine-friendly).
+    """
     ra = hand_rank(a_cards)
     rb = hand_rank(b_cards)
     if ra > rb:
         return "A"
     if rb > ra:
         return "B"
-    return "Tie"
+    # exact tie → random winner for engine consistency
+    return random.choice(["A", "B"])
 
 def pretty(cards):
     if cards is None:
@@ -122,6 +127,21 @@ def rank_name(rank_tuple):
 # Round timing constants (shared with engine)
 # ============================================================
 
-BET_WINDOW = 20   # 0–20s: bet
-REVEAL_END = 30   # 20–30s: reveal
-CYCLE = 30        # total cycle length
+# New canonical names (match engine.py)
+BET_SECONDS = 20
+REVEAL_SECONDS = 10
+CYCLE_SECONDS = BET_SECONDS + REVEAL_SECONDS  # 30s total
+
+# Backward-compatible aliases (do not break older imports)
+BET_WINDOW = BET_SECONDS     # 0–20s: bet
+REVEAL_END = CYCLE_SECONDS   # 20–30s: reveal
+CYCLE = CYCLE_SECONDS        # total cycle length
+
+__all__ = [
+    "SUITS", "RANKS", "RANK_VALUE", "FLIPPED",
+    "build_deck", "draw_two_hands_unique", "parse_rank", "parse_suit",
+    "values_desc", "is_sequence", "hand_rank", "compare_hands",
+    "pretty", "rank_name",
+    "BET_SECONDS", "REVEAL_SECONDS", "CYCLE_SECONDS",
+    "BET_WINDOW", "REVEAL_END", "CYCLE",
+]
