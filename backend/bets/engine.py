@@ -178,6 +178,16 @@ def settle_round(round_id: str, winner: str):
                 new_bal = prev_bal + payout
                 user.balance = new_bal
                 user.save(update_fields=["balance"])
+
+                # ✅ NEW: Create an engine-generated BetRecord entry for audit
+                BetRecord.objects.create(
+                    user=user,
+                    round_id=round_id,
+                    player=bet.player,
+                    amount=payout,
+                    is_engine_generated=True,  # ✅ Mark as engine-created
+                )
+
                 Transaction.objects.create(
                     from_user=None,
                     to_user=user,
@@ -191,6 +201,15 @@ def settle_round(round_id: str, winner: str):
                 )
                 print(f"[settle_round] ✅ {user.username} won +{payout}")
             else:
+                # ✅ NEW: Also log engine-generated loss entry (if needed)
+                BetRecord.objects.create(
+                    user=user,
+                    round_id=round_id,
+                    player=bet.player,
+                    amount=bet.amount,
+                    is_engine_generated=True,  # ✅ Mark as engine-created
+                )
+
                 Transaction.objects.create(
                     from_user=None,
                     to_user=user,

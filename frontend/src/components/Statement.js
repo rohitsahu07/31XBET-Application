@@ -33,13 +33,16 @@ const Statement = () => {
       try {
         const res = await axios.get("/api/users/");
         const list = Array.isArray(res.data) ? res.data : [];
-        // Backend returns all non-admin users for admin, otherwise just self
-        const admin = list.length > 1 || (list[0]?.is_superuser === true);
+
+        // ✅ Detect if current user is admin
+        const currentUser = list.find((u) => u.is_self);
+        const admin = currentUser?.is_superuser || false;
+
         setIsAdmin(admin);
-        setUsers(list.filter(u => !u.is_superuser));
+        setUsers(list.filter((u) => !u.is_superuser));
         setLoadedAdminUsers(true);
 
-        // If NOT admin, fetch own statement immediately
+        // ✅ Fetch own data immediately if not admin
         if (!admin) {
           await fetchStatement();
         }
@@ -50,6 +53,7 @@ const Statement = () => {
     };
     init();
   }, []);
+
 
   const fetchStatement = async (userId = null) => {
     try {
@@ -87,7 +91,7 @@ const Statement = () => {
        <SectionHeader title="💰 My Account Statement" />
 
       {/* Admin user dropdown */}
-      {isAdmin && (
+      {isAdmin && users.length > 0 && (
         <Box sx={{ display: "flex", justifyContent: "center", mb: 2, mt: 2 }}>
           <FormControl sx={{ minWidth: 260 }}>
             <InputLabel>Select User</InputLabel>

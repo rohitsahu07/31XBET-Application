@@ -26,7 +26,6 @@ class LedgerViewSet(viewsets.ReadOnlyModelViewSet):
             models.Q(from_user_id__in=descendants) | models.Q(to_user_id__in=descendants)
         ).order_by('-timestamp')
 
-
 class StatementView(APIView):
     """
     Returns a single unified statement feed (bets + chip transfers) for:
@@ -47,15 +46,19 @@ class StatementView(APIView):
             target_id = user.id
 
         # Chip transfers (Transaction) for target user
-        # Include rows where the user is the recipient (to_user):
         transfers = Transaction.objects.filter(to_user_id=target_id).order_by('-timestamp')
 
-        # Bets (BetRecord) for target user
-        bets = BetRecord.objects.filter(user_id=target_id).order_by('-date_time')
+        # ✅ Fix: Use `created_at` (not `date_time`) from BetRecord
+        bets = (
+            BetRecord.objects
+            .filter(user_id=target_id, is_engine_generated=False)  # ✅ only user-placed bets
+            .order_by('-created_at')
+        )
 
         # Normalize to a common dict structure
         rows = []
 
+        # Transfers
         for t in transfers:
             rows.append({
                 "date": t.timestamp,
@@ -67,17 +70,18 @@ class StatementView(APIView):
                 "source": "transfer",
             })
 
+        # Bets
         for b in bets:
             rows.append({
-                "date": b.date_time,
-                "description": b.description,
-                "prev_balance": str(b.prev_balance),
-                "credit": str(b.credit),
-                "debit": str(b.debit),
-                "balance": str(b.balance),
+                "date": b.created_at,  # ✅ Fixed here too
+                "description": getattr(b, 'description', f"Bet on Player {b.player}"),
+                "prev_balance": str(getattr(b, 'prev_balance', 0)),
+                "credit": str(getattr(b, 'credit', 0)),
+                "debit": str(getattr(b, 'debit', 0)),
+                "balance": str(getattr(b, 'balance', 0)),
                 "source": "bet",
-                "won_by": b.won_by,
-                "status": b.status,
+                "won_by": getattr(b, 'won_by', None),
+                "status": getattr(b, 'status', None),
             })
 
         # Sort by date desc
@@ -85,11 +89,13 @@ class StatementView(APIView):
 
         # Format date as string (frontend friendly)
         for r in rows:
-            r["date"] = r["date"].strftime("%d-%b-%y %I:%M %p")
-
+            if hasattr(r["date"], "strftime"):
+                r["date"] = r["date"].strftime("%d-%b-%y %I:%M %p")
+        print(f"[ledger] Sending {len(rows)} rows for user_id={target_id}")
         return Response(rows, status=status.HTTP_200_OK)
 
     def _tx_description(self, t: Transaction) -> str:
+        """Generate readable description for Transaction entries"""
         if t.type == 'grant':
             who = t.from_user.username if t.from_user else 'Admin'
             return f"Chips credited to {t.to_user.username} by {who}"
@@ -97,3 +103,5 @@ class StatementView(APIView):
             who = t.from_user.username if t.from_user else 'Admin'
             return f"Chips debited from {t.to_user.username} by {who}"
         return t.type.capitalize()
+
+

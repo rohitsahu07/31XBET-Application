@@ -1,4 +1,3 @@
-# backend/bets/models.py
 from __future__ import annotations
 
 from decimal import Decimal
@@ -42,7 +41,6 @@ def _coerce_dt(value: Any) -> Optional[datetime]:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # BetRecord (simple audit of individual user bets)
-# NOTE: This model is kept minimal because your API mainly uses RoundFeed.
 # ─────────────────────────────────────────────────────────────────────────────
 
 class BetRecord(models.Model):
@@ -60,16 +58,19 @@ class BetRecord(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # ✅ New field to distinguish user bets vs engine-generated results
+    is_engine_generated = models.BooleanField(default=False)
+
     class Meta:
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
-        return f"BetRecord(id={self.pk}, round={self.round_id}, {self.player}, {self.amount})"
+        tag = "Engine" if self.is_engine_generated else "User"
+        return f"{tag} Bet(id={self.pk}, round={self.round_id}, {self.player}, {self.amount})"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RoundFeed (single table powering the admin “Round feeds” list & last-10 API)
-# Stores both engine rows (“Engine Final”) and user bet rows (“Place Bet”).
 # ─────────────────────────────────────────────────────────────────────────────
 
 class RoundFeed(models.Model):
@@ -106,9 +107,7 @@ class RoundFeed(models.Model):
     # How the line was produced: 'official' (engine-set) or 'biased' (during bet phase)
     resolver = models.CharField(max_length=32, null=True, blank=True)
 
-    # The final result attached to this feed line (A/B). For engine rows this
-    # mirrors official_winner; for bets placed during "bet" phase it's the
-    # biased result we show to the user.
+    # The final result attached to this feed line (A/B)
     final_result = models.CharField(max_length=1, null=True, blank=True)
 
     class Meta:
@@ -119,9 +118,7 @@ class RoundFeed(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        """
-        Normalize times before saving so passing epoch seconds never breaks.
-        """
+        """Normalize times before saving so passing epoch seconds never breaks."""
         self.start_time = _coerce_dt(self.start_time)
         self.end_time = _coerce_dt(self.end_time)
         super().save(*args, **kwargs)

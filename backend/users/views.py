@@ -23,6 +23,7 @@ def generate_random_password():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 
+# ✅ Change Password API
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -39,6 +40,7 @@ class ChangePasswordView(APIView):
         return Response({"detail": "Password changed successfully"}, status=status.HTTP_200_OK)
 
 
+# ✅ Logout API (Blacklist token)
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -56,6 +58,7 @@ class LogoutView(APIView):
             return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
 
 
+# ✅ User Management
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('id')
     serializer_class = UserSerializer
@@ -63,17 +66,22 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def me(self, request):
+        """Return current user profile"""
         user = request.user
-        serializer = self.get_serializer(user)
+        serializer = self.get_serializer(user, context={"request": request})
         return Response(serializer.data)
 
-    # ✅ Filter out admin from list
+    # ✅ Secure list: Admin sees all (excluding superuser), user sees only self
     def list(self, request):
-        queryset = User.objects.exclude(is_superuser=True).order_by('id')
-        serializer = self.get_serializer(queryset, many=True)
+        user = request.user
+        if user.is_superuser:
+            queryset = User.objects.exclude(is_superuser=True).order_by('id')
+        else:
+            queryset = User.objects.filter(id=user.id)
+        serializer = self.get_serializer(queryset, many=True, context={"request": request})
         return Response(serializer.data)
 
-    # ✅ Create user with chip code, password, and initial balance
+    # ✅ Create user with chip code, password, and initial balance (Admin only)
     def create(self, request):
         if not request.user.is_superuser:
             return Response({"error": "Only admin can create users"}, status=status.HTTP_403_FORBIDDEN)
@@ -81,7 +89,6 @@ class UserViewSet(viewsets.ModelViewSet):
         username = request.data.get("username")
         password = request.data.get("password") or generate_random_password()
         balance = Decimal(request.data.get("balance", "0.00"))
-
         chip_code = generate_chip_code()
 
         user = User.objects.create(
@@ -90,14 +97,12 @@ class UserViewSet(viewsets.ModelViewSet):
             role="client"
         )
         user.set_password(password)
-        user.save()
-
         user.balance = balance
         user.save()
 
         return Response({
             "message": "User created successfully!",
-            "user": UserSerializer(user).data,
+            "user": UserSerializer(user, context={"request": request}).data,
             "login_details": {
                 "url": "http://jsm99.pro/",
                 "chip_code": chip_code,
@@ -107,6 +112,7 @@ class UserViewSet(viewsets.ModelViewSet):
             }
         }, status=status.HTTP_201_CREATED)
 
+    # ✅ Deposit chips
     @action(detail=True, methods=['post'])
     def deposit(self, request, pk=None):
         user = self.get_object()
@@ -115,6 +121,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
         return Response({"message": f"₹{amount} added successfully", "balance": user.balance})
 
+    # ✅ Withdraw chips
     @action(detail=True, methods=['post'])
     def withdraw(self, request, pk=None):
         user = self.get_object()
@@ -125,6 +132,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
         return Response({"message": f"₹{amount} withdrawn successfully", "balance": user.balance})
 
+    # ✅ Reset password (Admin only)
     @action(detail=True, methods=['post'])
     def reset_password(self, request, pk=None):
         user = self.get_object()
@@ -136,8 +144,17 @@ class UserViewSet(viewsets.ModelViewSet):
             "new_password": new_password
         })
 
+    # ✅ Edit username
     @action(detail=True, methods=['post'])
     def edit_name(self, request, pk=None):
+        user = self.get_object()
+        new_name = request.data.get('username')
+        if not new_name:
+            return Response({"error": "Username required"}, status=400)
+        user.username = new_name
+        user.save()
+        return Response({"message": "Username updated successfully", "username": user.username})
+
         user = self.get_object()
         new_name = request.data.get('username')
         if not new_name:
