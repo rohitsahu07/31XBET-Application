@@ -1,10 +1,9 @@
 // src/components/Login.js
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../redux/userSlice';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { FaUserCircle } from "react-icons/fa";
+import { useNavigate } from 'react-router-dom';
 // import { Box, Button, TextField, IconButton, Link, InputAdornment } from '@mui/material';
 
 const Login = () => {
@@ -29,8 +28,8 @@ const Login = () => {
 
     try {
       const res = await axios.post('/api/token/', { username, password });
-      localStorage.setItem('access_token', res.data.access);
-      localStorage.setItem('refresh_token', res.data.refresh);
+      sessionStorage.setItem('access_token', res.data.access);
+      sessionStorage.setItem('refresh_token', res.data.refresh);
       const userRes = await axios.get('/api/users/', {
         headers: { Authorization: `Bearer ${res.data.access}` }
       });
@@ -79,13 +78,8 @@ const Login = () => {
             autoComplete="current-password" 
           />
           {passwordError && <div className="error-message">{passwordErrorMessage}</div>}
-
-          <RouterLink to="/forgot-password" className="forgot">forgot password?</RouterLink>
-
           <button className="btn" type="submit">Sign in</button>
         </form>
-
-        <RouterLink to="/register" className="register">register</RouterLink>
       </div>
     </div>
   );

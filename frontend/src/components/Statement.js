@@ -59,7 +59,7 @@ const Statement = () => {
     try {
       let url = "/api/ledger/statement/";
       if (isAdmin && userId) url += `?user_id=${userId}`;
-      const token = localStorage.getItem("access_token");
+      const token = sessionStorage.getItem("access_token");
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
