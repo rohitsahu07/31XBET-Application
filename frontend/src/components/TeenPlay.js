@@ -247,6 +247,7 @@ function TeenPlay({ setExpo }) {
   const phaseRef = useRef(phase);
   const boundaryFetchInFlight = useRef(false);
   const revealFetchInFlight = useRef(false);
+  const amountInputRef = useRef(null);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -271,17 +272,6 @@ function TeenPlay({ setExpo }) {
     console.log("[TeenPlay] GET", url);
     const res = await api.get(url);
     console.log("[TeenPlay] /feed/last-ten response:", res.data);
-    return res;
-  };
-
-  const postPlaceBet = async (payload) => {
-    const url = buildUrl("/place-bet/");
-    console.log("[TeenPlay] POST", url, payload);
-    // NOTE: no per-request short timeout — let the global axios timeout handle it
-    const res = await api.post(url, payload, {
-      headers: { "Content-Type": "application/json" },
-    });
-    console.log("[TeenPlay] /place-bet response:", res.data);
     return res;
   };
 
@@ -501,15 +491,8 @@ function TeenPlay({ setExpo }) {
     }
     if (placing) return;
 
-    const payload = {
-      round_id: serverRound.round_id,
-      player: selectedPlayer,
-      amount: cleanAmount,
-    };
-
     setPlacing(true);
     try {
-
       // Append immediately to MATCH BETS
       setMatchBets((prev) => [
         ...prev,
@@ -562,8 +545,15 @@ function TeenPlay({ setExpo }) {
   const aMask = useMemo(() => revealMaskForStep(revealStep, "A"), [revealStep]);
   const bMask = useMemo(() => revealMaskForStep(revealStep, "B"), [revealStep]);
 
-  const aLabels = serverRound.player_a_full || ["", "", ""];
-  const bLabels = serverRound.player_b_full || ["", "", ""];
+  const aLabels = useMemo(
+    () => serverRound.player_a_full || ["", "", ""],
+    [serverRound.player_a_full]
+  );
+
+  const bLabels = useMemo(
+    () => serverRound.player_b_full || ["", "", ""],
+    [serverRound.player_b_full]
+  );
 
   const localWinner = useMemo(() => {
     if (phase === "reveal" && revealStep === 6 && aLabels[0] && bLabels[0]) {
@@ -618,13 +608,25 @@ function TeenPlay({ setExpo }) {
         </Typography>
       </Box>
 
-      {/* GAME AREA */}
       <Box
         sx={{
-          position: "relative",
-          bgcolor: "black",
-          height: 400,
-          overflow: "hidden",
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(110deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.15) 40%, rgba(255,255,255,0.08) 80%)",
+          backgroundSize: "200% 100%",
+          animation:
+            "shimmer 2.5s infinite linear, pulse 3s ease-in-out infinite",
+          "@keyframes shimmer": {
+            "0%": { backgroundPosition: "-200% 0" },
+            "100%": { backgroundPosition: "200% 0" },
+          },
+          "@keyframes pulse": {
+            "0%": { opacity: 0.4 },
+            "50%": { opacity: 0.8 },
+            "100%": { opacity: 0.4 },
+          },
+          pointerEvents: "none",
         }}
       >
         <Box
@@ -634,41 +636,83 @@ function TeenPlay({ setExpo }) {
             width: "100%",
             bgcolor: "#222",
             color: "white",
-            p: 1.5,
+            p: { xs: 1, sm: 1.5 },
             display: "flex",
-            justifyContent: "space-evenly",
+            justifyContent: "space-between",
             alignItems: "center",
-            flexWrap: "wrap",
-            gap: 2,
+            px: { xs: 1, sm: 3 },
+            gap: { xs: 0.5, sm: 2 },
           }}
         >
           {/* Player A */}
-          <Box sx={{ textAlign: "center" }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+          <Box
+            sx={{
+              textAlign: "center",
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              minWidth: 0, // ✅ allows shrink
+            }}
+          >
+            <Typography
+              variant="body1"
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: "0.75rem", sm: "1rem" },
+                mb: 0.5,
+              }}
+            >
               Player A
             </Typography>
-            <Box sx={{ display: "flex", gap: 0.75, justifyContent: "center" }}>
+
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                flexWrap: "nowrap",
+                gap: { xs: 0.3, sm: 0.75 },
+                width: "100%",
+                maxWidth: { xs: "100%", sm: "100%" },
+              }}
+            >
               {aMask.map((show, i) => (
-                <CardBox key={`A-${i}`} revealed={show} label={aLabels[i]} />
+                <CardBox
+                  key={`A-${i}`}
+                  revealed={show}
+                  label={aLabels[i]}
+                  sx={{
+                    flex: "0 1 auto",
+                    width: { xs: "14vw", sm: 45 }, // ✅ responsive relative width
+                    height: { xs: "20vw", sm: 65 },
+                    maxWidth: { xs: 45, sm: 65 },
+                  }}
+                />
               ))}
             </Box>
           </Box>
 
           {/* TIMER */}
-          <Box sx={{ textAlign: "center", minWidth: 160 }}>
+          <Box
+            sx={{
+              textAlign: "center",
+              flex: "0 0 auto",
+              px: { xs: 0.5, sm: 2 },
+            }}
+          >
             <Typography
               variant="subtitle2"
               sx={{
                 fontWeight: 700,
-                width: 60,
-                height: 60,
+                width: { xs: 35, sm: 60 },
+                height: { xs: 35, sm: 60 },
                 borderRadius: "50%",
                 bgcolor: phase === "bet" ? "#2196f3" : "error.main",
                 color: "white",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "1.2rem",
+                fontSize: { xs: "0.9rem", sm: "1.2rem" },
                 boxShadow: "0 0 10px rgba(0,0,0,0.3)",
                 mx: "auto",
               }}
@@ -678,13 +722,49 @@ function TeenPlay({ setExpo }) {
           </Box>
 
           {/* Player B */}
-          <Box sx={{ textAlign: "center" }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+          <Box
+            sx={{
+              textAlign: "center",
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              minWidth: 0,
+            }}
+          >
+            <Typography
+              variant="body1"
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: "0.75rem", sm: "1rem" },
+                mb: 0.5,
+              }}
+            >
               Player B
             </Typography>
-            <Box sx={{ display: "flex", gap: 0.75, justifyContent: "center" }}>
+
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                flexWrap: "nowrap",
+                gap: { xs: 0.3, sm: 0.75 },
+                width: "100%",
+                maxWidth: { xs: "100%", sm: "100%" },
+              }}
+            >
               {bMask.map((show, i) => (
-                <CardBox key={`B-${i}`} revealed={show} label={bLabels[i]} />
+                <CardBox
+                  key={`B-${i}`}
+                  revealed={show}
+                  label={bLabels[i]}
+                  sx={{
+                    flex: "0 1 auto",
+                    width: { xs: "14vw", sm: 45 }, // ✅ responsive relative width
+                    height: { xs: "20vw", sm: 65 },
+                    maxWidth: { xs: 45, sm: 65 },
+                  }}
+                />
               ))}
             </Box>
           </Box>
@@ -692,32 +772,42 @@ function TeenPlay({ setExpo }) {
       </Box>
 
       {/* PLAYER ODDS */}
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer
+        component={Paper}
+        sx={{
+          borderRadius: 1,
+          overflow: "hidden",
+          boxShadow: "0 3px 6px rgba(0,0,0,0.15)",
+        }}
+      >
+        <Table
+          sx={{
+            tableLayout: "fixed",
+            width: "100%",
+            "& th, & td": { textAlign: "center" },
+          }}
+        >
           <TableHead>
             <TableRow sx={{ bgcolor: "#063b65ff" }}>
-              <TableCell
-                align="center"
-                sx={{
-                  color: "white",
-                  fontWeight: "bold",
-                  borderRight: "1px solid white",
-                }}
-              >
-                Players
-              </TableCell>
-              <TableCell
-                align="center"
-                sx={{
-                  bgcolor: "#063b65ff",
-                  color: "white",
-                  fontWeight: "bold",
-                }}
-              >
-                Back
-              </TableCell>
+              {[
+                { label: "Players", width: "70%" },
+                { label: "Back", width: "30%" },
+              ].map((col, i) => (
+                <TableCell
+                  key={i}
+                  sx={{
+                    width: col.width,
+                    color: "#fff",
+                    fontWeight: "bold",
+                    borderRight: i === 0 ? "1px solid #fff" : 0,
+                  }}
+                >
+                  {col.label}
+                </TableCell>
+              ))}
             </TableRow>
           </TableHead>
+
           <TableBody>
             {["A", "B"].map((player) => (
               <TableRow
@@ -725,24 +815,32 @@ function TeenPlay({ setExpo }) {
                 sx={{
                   bgcolor: rowBg(player),
                   transition: "background-color 0.2s ease",
+                  cursor: "pointer",
                 }}
               >
                 <TableCell
-                  align="center"
                   sx={{
-                    color: rowTextColor(player),
+                    width: "70%",
                     fontWeight: 600,
-                    borderRight: "1px solid white",
+                    color: rowTextColor(player),
+                    borderRight: "1px solid #fff",
                   }}
                 >
                   Player {player}
                 </TableCell>
+
                 <TableCell
-                  align="center"
-                  sx={backButtonStyle(selectedPlayer === player)}
-                  onClick={() => onSelectPlayer(player)}
+                  onClick={() => {
+                    onSelectPlayer(player);
+                    setTimeout(() => amountInputRef.current?.focus(), 100);
+                  }}
+                  sx={{
+                    ...backButtonStyle(selectedPlayer === player),
+                    width: "30%",
+                    "&:hover": { opacity: 0.9 },
+                  }}
                 >
-                  <Typography sx={{ lineHeight: 1 }}>0.96</Typography>
+                  <Typography sx={{ lineHeight: 1 }}>0.95</Typography>
                   <Typography sx={{ lineHeight: 1 }}>0</Typography>
                 </TableCell>
               </TableRow>
@@ -788,22 +886,77 @@ function TeenPlay({ setExpo }) {
       </Box>
 
       {/* AMOUNT + PLACE BET */}
-      <Box sx={{ bgcolor: "#efebebff", py: 2, px: 2 }}>
-        <Grid container spacing={1} alignItems="center">
-          <Grid item xs={12} sm={3}>
-            <Typography>Amount</Typography>
+      <Box
+        sx={{
+          bgcolor: "#efebebff",
+          py: 2,
+          px: { xs: 1.5, sm: 2 },
+        }}
+      >
+        <Grid
+          container
+          alignItems="center"
+          spacing={1.5}
+          wrap={{ xs: "nowrap", sm: "nowrap" }}
+          sx={{
+            flexWrap: { xs: "wrap", sm: "nowrap" }, // 👈 allows wrapping only when screen is too small
+            justifyContent: "space-between",
+            overflowX: "auto",
+            "&::-webkit-scrollbar": { display: "none" },
+          }}
+        >
+          {/* 🟩 Label */}
+          <Grid
+            item
+            sx={{
+              flexShrink: 0,
+              width: { xs: "25%", sm: "20%" },
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: "0.85rem", sm: "1rem" },
+              }}
+            >
+              Amount
+            </Typography>
           </Grid>
-          <Grid item xs={12} sm={5}>
+
+          {/* 🟨 Input */}
+          <Grid
+            item
+            sx={{
+              flexGrow: 1,
+              minWidth: { xs: 100, sm: 200 },
+            }}
+          >
             <TextField
+              inputRef={amountInputRef}
               type="number"
               size="small"
               fullWidth
               placeholder="Enter amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              sx={{
+                bgcolor: "#fff",
+                borderRadius: 1,
+                "& input": { textAlign: "center", fontWeight: 500 },
+              }}
             />
           </Grid>
-          <Grid item xs={12} sm={4}>
+
+          {/* 🟥 Button */}
+          <Grid
+            item
+            sx={{
+              flexShrink: 0,
+              width: { xs: "30%", sm: "25%" },
+            }}
+          >
             <Button
               variant="contained"
               color={phase === "bet" ? "success" : "error"}
@@ -812,12 +965,18 @@ function TeenPlay({ setExpo }) {
               disabled={
                 placing || !selectedPlayer || !amount || phase !== "bet"
               }
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: "0.75rem", sm: "0.9rem" },
+                textTransform: "none",
+                whiteSpace: "nowrap",
+              }}
             >
               {placing
-                ? "PLACING..."
+                ? "Placing..."
                 : phase === "bet"
-                ? "PLACE BET"
-                : "BET CLOSED"}
+                ? "Place Bet"
+                : "Bet Closed"}
             </Button>
           </Grid>
         </Grid>
@@ -877,7 +1036,7 @@ function TeenPlay({ setExpo }) {
         open={toast.open}
         autoHideDuration={2500}
         onClose={() => setToast((t) => ({ ...t, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert
           onClose={() => setToast((t) => ({ ...t, open: false }))}

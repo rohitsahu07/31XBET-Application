@@ -8,7 +8,7 @@ const scroll = keyframes`
 `;
 
 const ScrollingTextBar = ({
-  text = "🚀 Ground commentary ki bet delete hongi har match m.. Kalyan, Gali, Disawer Matka chalu h",
+  text = "ground commentary ki bet delete hongi har match m.. Kalyan, Gali, Disawer Matka chalu h",
   bgColor = "#FFD600",
   textColor = "#000",
   duration = "25s",

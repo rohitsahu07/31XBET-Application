@@ -21,7 +21,6 @@ const HomePage = () => {
     <Box
       sx={{
         p: 2,
-        minHeight: "100vh",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
