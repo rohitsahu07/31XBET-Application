@@ -610,23 +610,10 @@ function TeenPlay({ setExpo }) {
 
       <Box
         sx={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(110deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.15) 40%, rgba(255,255,255,0.08) 80%)",
-          backgroundSize: "200% 100%",
-          animation:
-            "shimmer 2.5s infinite linear, pulse 3s ease-in-out infinite",
-          "@keyframes shimmer": {
-            "0%": { backgroundPosition: "-200% 0" },
-            "100%": { backgroundPosition: "200% 0" },
-          },
-          "@keyframes pulse": {
-            "0%": { opacity: 0.4 },
-            "50%": { opacity: 0.8 },
-            "100%": { opacity: 0.4 },
-          },
-          pointerEvents: "none",
+          position: "relative",
+          bgcolor: "black",
+          height: { xs: 260, sm: 400 },
+          overflow: "hidden",
         }}
       >
         <Box
@@ -889,50 +876,36 @@ function TeenPlay({ setExpo }) {
       <Box
         sx={{
           bgcolor: "#efebebff",
-          py: 2,
-          px: { xs: 1.5, sm: 2 },
+          py: 1.5,
+          px: 2,
         }}
       >
         <Grid
           container
           alignItems="center"
-          spacing={1.5}
-          wrap={{ xs: "nowrap", sm: "nowrap" }}
+          justifyContent="center"
+          spacing={1}
+          wrap="nowrap"
           sx={{
-            flexWrap: { xs: "wrap", sm: "nowrap" }, // 👈 allows wrapping only when screen is too small
-            justifyContent: "space-between",
+            flexWrap: "nowrap",
             overflowX: "auto",
             "&::-webkit-scrollbar": { display: "none" },
           }}
         >
-          {/* 🟩 Label */}
-          <Grid
-            item
-            sx={{
-              flexShrink: 0,
-              width: { xs: "25%", sm: "20%" },
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
+          {/* Label */}
+          <Grid item sx={{ minWidth: 70 }}>
             <Typography
               sx={{
                 fontWeight: 600,
-                fontSize: { xs: "0.85rem", sm: "1rem" },
+                fontSize: "0.9rem",
               }}
             >
               Amount
             </Typography>
           </Grid>
 
-          {/* 🟨 Input */}
-          <Grid
-            item
-            sx={{
-              flexGrow: 1,
-              minWidth: { xs: 100, sm: 200 },
-            }}
-          >
+          {/* Input */}
+          <Grid item sx={{ minWidth: 130 }}>
             <TextField
               inputRef={amountInputRef}
               type="number"
@@ -944,19 +917,17 @@ function TeenPlay({ setExpo }) {
               sx={{
                 bgcolor: "#fff",
                 borderRadius: 1,
-                "& input": { textAlign: "center", fontWeight: 500 },
+                "& input": {
+                  textAlign: "center",
+                  fontSize: "0.9rem",
+                  p: "4px",
+                },
               }}
             />
           </Grid>
 
-          {/* 🟥 Button */}
-          <Grid
-            item
-            sx={{
-              flexShrink: 0,
-              width: { xs: "30%", sm: "25%" },
-            }}
-          >
+          {/* Button */}
+          <Grid item sx={{ minWidth: 100 }}>
             <Button
               variant="contained"
               color={phase === "bet" ? "success" : "error"}
@@ -967,9 +938,10 @@ function TeenPlay({ setExpo }) {
               }
               sx={{
                 fontWeight: 600,
-                fontSize: { xs: "0.75rem", sm: "0.9rem" },
+                fontSize: "0.75rem",
                 textTransform: "none",
                 whiteSpace: "nowrap",
+                height: 36,
               }}
             >
               {placing
