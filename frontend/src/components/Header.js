@@ -1,5 +1,5 @@
 // frontend/src/components/Header.js
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   AppBar,
   Box,
@@ -17,12 +17,37 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 function Header() {
-  const [anchorEl, setAnchorEl] = React.useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [isSuperuser, setIsSuperuser] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const isMenuOpen = Boolean(anchorEl);
   const navigate = useNavigate();
 
-  const isMenuOpen = Boolean(anchorEl);
+  // Prefer /api/users/me/ to determine role
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const access = sessionStorage.getItem("access_token");
+        const res = await api.get("/api/users/me/", {
+          headers: access ? { Authorization: `Bearer ${access}` } : {},
+        });
+        if (!mounted) return;
+        setIsSuperuser(!!res.data?.is_superuser);
+      } catch (e) {
+        // optional fallback from cache
+        const cached = sessionStorage.getItem("is_admin");
+        if (mounted && cached !== null) setIsSuperuser(cached === "1");
+      } finally {
+        if (mounted) setLoaded(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  const handleProfileMenuOpen = (event) => setAnchorEl(event.currentTarget);
+  const handleProfileMenuOpen = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
 
   const handleUserManagement = () => {
@@ -34,66 +59,21 @@ function Header() {
     try {
       const refresh = sessionStorage.getItem("refresh_token");
       const access = sessionStorage.getItem("access_token");
-
-      if (!refresh || !access) {
-        console.warn("⚠️ No tokens found, redirecting to login...");
-        sessionStorage.clear();
-        navigate("/");
-        return;
-      }
-
-      console.log("🔄 Sending logout request to backend...");
-
-      // ✅ Proper API call with Authorization header
+      if (!refresh || !access) throw new Error("No tokens");
       await api.post(
         "/api/users/logout/",
         { refresh },
-        {
-          headers: {
-            Authorization: `Bearer ${access}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${access}` } }
       );
-
-      console.log("✅ Logout successful (backend hit confirmed)");
-    } catch (error) {
-      console.error("❌ Logout failed:", error.response?.data || error.message);
+    } catch (e) {
+      // non-blocking fallback
+      console.warn("Logout:", e?.message || e);
     } finally {
-      // ✅ Clear tokens and redirect to login page
       sessionStorage.removeItem("access_token");
       sessionStorage.removeItem("refresh_token");
       navigate("/");
     }
   };
-
-  const renderMenu = (
-    <Menu
-      anchorEl={anchorEl}
-      anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      id="account-menu"
-      keepMounted
-      transformOrigin={{ vertical: "top", horizontal: "right" }}
-      open={isMenuOpen}
-      onClose={handleMenuClose}
-    >
-      
-      <MenuItem onClick={handleUserManagement}>
-        <IconButton size="small" color="inherit">
-          <AccountCircle />
-        </IconButton>
-        User Management
-      </MenuItem>
-
-      <Divider component="li" />
-
-      <MenuItem onClick={handleLogout}>
-        <IconButton size="small" color="inherit">
-          <LogoutIcon />
-        </IconButton>
-        Logout
-      </MenuItem>
-    </Menu>
-  );
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -107,32 +87,65 @@ function Header() {
           {/* Spacer */}
           <Box sx={{ flexGrow: 1 }} />
 
-          {/* Desktop Menu */}
+          {/* Desktop-only: Home & Rules */}
           <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}>
             <MenuItem sx={{ color: "#fff" }} onClick={() => navigate("/home")}>
-              <FaHome size={20} style={{ marginRight: "6px" }} />
+              <FaHome size={20} style={{ marginRight: 6 }} />
               Home
             </MenuItem>
-
             <MenuItem sx={{ color: "#fff" }} onClick={() => navigate("/rules")}>
               Rules
             </MenuItem>
-
-            <IconButton size="large" color="inherit" onClick={handleProfileMenuOpen}>
-              <AccountCircle />
-            </IconButton>
           </Box>
 
-          {/* Mobile View: Only Profile Icon */}
-          <Box sx={{ display: { xs: "flex", md: "none" } }}>
-            <IconButton size="large" color="inherit" onClick={handleProfileMenuOpen}>
-              <AccountCircle />
-            </IconButton>
-          </Box>
+          {/* Always show (both mobile & desktop): role-based icons */}
+          {loaded && (
+            !isSuperuser ? (
+              // Client: Logout only
+              <IconButton
+                size="large"
+                color="inherit"
+                onClick={handleLogout}
+                aria-label="Logout"
+                sx={{ ml: 0.5 }}
+              >
+                <LogoutIcon />
+              </IconButton>
+            ) : (
+              // Admin: Account menu (User Management + Logout)
+              <>
+                <IconButton
+                  size="large"
+                  color="inherit"
+                  onClick={handleProfileMenuOpen}
+                  aria-label="Account menu"
+                  sx={{ ml: 0.5 }}
+                >
+                  <AccountCircle />
+                </IconButton>
+                <Menu
+                  anchorEl={anchorEl}
+                  anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                  transformOrigin={{ vertical: "top", horizontal: "right" }}
+                  open={isMenuOpen}
+                  onClose={handleMenuClose}
+                  id="account-menu"
+                >
+                  <MenuItem onClick={handleUserManagement}>
+                    <AccountCircle fontSize="small" style={{ marginRight: 8 }} />
+                    User Management
+                  </MenuItem>
+                  <Divider component="li" />
+                  <MenuItem onClick={handleLogout}>
+                    <LogoutIcon fontSize="small" style={{ marginRight: 8 }} />
+                    Logout
+                  </MenuItem>
+                </Menu>
+              </>
+            )
+          )}
         </Toolbar>
       </AppBar>
-
-      {renderMenu}
     </Box>
   );
 }
