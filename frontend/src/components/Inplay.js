@@ -6,7 +6,6 @@ import {
   CardContent,
   Typography,
   CircularProgress,
-  Chip,
   Stack
 } from '@mui/material';
 import Chips from './Chips';
