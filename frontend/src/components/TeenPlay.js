@@ -16,6 +16,7 @@ import {
   Snackbar,
   Alert,
 } from "@mui/material";
+import { CircularProgress } from "@mui/material";
 import api from "../services/api";
 import BackToMainMenuButton from "./common_components/BackToMenuBtn";
 
@@ -124,6 +125,33 @@ const CardBox = ({ revealed, label }) => {
     </Box>
   );
 };
+
+const LoadingRing = ({ size = 72, thickness = 5 }) => (
+  <Box sx={{ position: "relative", width: size, height: size }}>
+    {/* Background track */}
+    <CircularProgress
+      variant="determinate"
+      value={100}
+      size={size}
+      thickness={thickness}
+      sx={{ color: "rgba(33, 150, 243, 0.18)" }} // light blue track
+    />
+    {/* Spinning arc */}
+    <CircularProgress
+      variant="indeterminate"
+      disableShrink
+      size={size}
+      thickness={thickness}
+      sx={{
+        color: "#1976d2",
+        position: "absolute",
+        left: 0,
+        top: 0,
+        "& .MuiCircularProgress-circle": { strokeLinecap: "round" },
+      }}
+    />
+  </Box>
+);
 
 /* ======================= Reveal helpers ======================= */
 const revealMaskForStep = (step, player) => {
@@ -492,45 +520,54 @@ function TeenPlay({ setExpo }) {
     if (placing) return;
 
     setPlacing(true);
+
+    // Optimistic row so user sees the bet right away
+    const optimistic = {
+      id: Date.now(),
+      round_id: serverRound.round_id,
+      team: selectedPlayer === "A" ? "Player A" : "Player B",
+      rate: "0.96",
+      amount: cleanAmount.toString(),
+      mode: "Back",
+      __optimistic: true,
+    };
+    setMatchBets((prev) => [...prev, optimistic]);
+
     try {
-      // Append immediately to MATCH BETS
-      setMatchBets((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          round_id: serverRound.round_id,
-          team: selectedPlayer === "A" ? "Player A" : "Player B",
-          rate: "0.96",
-          amount: cleanAmount.toString(),
-          mode: "Back",
-        },
-      ]);
+      const url = buildUrl("/place-bet/");
+      const payload = {
+        round_id: serverRound.round_id,
+        player: selectedPlayer, // "A" or "B"
+        amount: cleanAmount,
+      };
 
-      if (typeof setExpo === "function") {
-        setExpo((prev) => prev + cleanAmount);
-      }
+      await api.post(url, payload);
+      window.dispatchEvent(new Event("profile:refresh"));
 
+      // Confirm optimistic row (optional visual diff)
+      setMatchBets((prev) =>
+        prev.map((r) =>
+          r.id === optimistic.id ? { ...r, __optimistic: false } : r
+        )
+      );
+
+      // Pull authoritative values: chips, balance, expo
+      await refreshProfile();
+
+      showToast("✅ Bet placed successfully");
       setAmount("");
       setSelectedPlayer(null);
-      showToast("✅ Bet placed successfully");
     } catch (err) {
-      console.error("[TeenPlay] place-bet failed:", err);
+      // Roll back optimistic UI & expo if the API failed
+      setMatchBets((prev) => prev.filter((r) => r.id !== optimistic.id));
+
       let msg = "❌ Failed to place bet.";
-      if (
-        err?.code === "ERR_NETWORK" ||
-        err?.message?.includes("Network Error")
-      ) {
-        msg =
-          "❌ Network error placing bet. Check CORS / URL / server availability.";
-        console.log("Axios config used:", err?.config);
-        console.log("Was baseURL correct?", api.defaults?.baseURL);
-      } else if (err?.code === "ECONNABORTED") {
-        msg = "❌ Request timed out. Try again.";
-      } else if (err?.response) {
-        msg = `❌ Bet failed (${err.response.status}).`;
-        console.log("Server responded:", err.response.data);
+      if (err?.response?.data?.error) msg = `❌ ${err.response.data.error}`;
+      else if (err?.code === "ERR_NETWORK") {
+        msg = "❌ Network error. Check API base URL / CORS / server.";
       }
       showToast(msg, "error");
+      console.error("[TeenPlay] place-bet failed:", err);
     } finally {
       setPlacing(false);
     }
@@ -608,27 +645,40 @@ function TeenPlay({ setExpo }) {
         </Typography>
       </Box>
 
+      {/* ===== Screen (black) with centered loader ===== */}
       <Box
         sx={{
-          position: "relative",
           bgcolor: "black",
           height: { xs: 260, sm: 400 },
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           overflow: "hidden",
+        }}
+      >
+        <LoadingRing size={50} thickness={2} />
+      </Box>
+
+      {/* ===== Game area (separate box below) ===== */}
+      <Box
+        sx={{
+          bgcolor: "black",
+          width: "100%",
+          py: { xs: 1, sm: 1.5 },
         }}
       >
         <Box
           sx={{
-            position: "absolute",
-            bottom: 0,
-            width: "100%",
             bgcolor: "#222",
             color: "white",
-            p: { xs: 1, sm: 1.5 },
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
+            justifyContent: "space-between",
             px: { xs: 1, sm: 3 },
             gap: { xs: 0.5, sm: 2 },
+            borderRadius: 0,
+            width: "100%",
           }}
         >
           {/* Player A */}
@@ -639,7 +689,7 @@ function TeenPlay({ setExpo }) {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              minWidth: 0, // ✅ allows shrink
+              minWidth: 0,
             }}
           >
             <Typography
@@ -660,7 +710,6 @@ function TeenPlay({ setExpo }) {
                 flexWrap: "nowrap",
                 gap: { xs: 0.3, sm: 0.75 },
                 width: "100%",
-                maxWidth: { xs: "100%", sm: "100%" },
               }}
             >
               {aMask.map((show, i) => (
@@ -670,7 +719,7 @@ function TeenPlay({ setExpo }) {
                   label={aLabels[i]}
                   sx={{
                     flex: "0 1 auto",
-                    width: { xs: "14vw", sm: 45 }, // ✅ responsive relative width
+                    width: { xs: "14vw", sm: 45 },
                     height: { xs: "20vw", sm: 65 },
                     maxWidth: { xs: 45, sm: 65 },
                   }}
@@ -679,7 +728,7 @@ function TeenPlay({ setExpo }) {
             </Box>
           </Box>
 
-          {/* TIMER */}
+          {/* Timer */}
           <Box
             sx={{
               textAlign: "center",
@@ -737,7 +786,6 @@ function TeenPlay({ setExpo }) {
                 flexWrap: "nowrap",
                 gap: { xs: 0.3, sm: 0.75 },
                 width: "100%",
-                maxWidth: { xs: "100%", sm: "100%" },
               }}
             >
               {bMask.map((show, i) => (
@@ -747,7 +795,7 @@ function TeenPlay({ setExpo }) {
                   label={bLabels[i]}
                   sx={{
                     flex: "0 1 auto",
-                    width: { xs: "14vw", sm: 45 }, // ✅ responsive relative width
+                    width: { xs: "14vw", sm: 45 },
                     height: { xs: "20vw", sm: 65 },
                     maxWidth: { xs: 45, sm: 65 },
                   }}
