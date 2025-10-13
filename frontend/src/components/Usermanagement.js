@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
-  Typography,
   Button,
   Table,
   TableBody,
@@ -16,7 +15,6 @@ import {
   MenuItem,
 } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import { FaUsers } from "react-icons/fa";
 import Swal from "sweetalert2";
 import api from "../services/api";
 import SectionHeader from "./common_components/PageTitle";

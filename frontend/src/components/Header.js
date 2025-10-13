@@ -12,7 +12,6 @@ import {
 } from "@mui/material";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
-import PersonIcon from "@mui/icons-material/Person";
 import { FaHome } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
@@ -25,11 +24,6 @@ function Header() {
 
   const handleProfileMenuOpen = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
-
-  const handleProfile = () => {
-    handleMenuClose();
-    navigate("/profile");
-  };
 
   const handleUserManagement = () => {
     handleMenuClose();
