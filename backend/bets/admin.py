@@ -1,21 +1,28 @@
 from django.contrib import admin
-from .models import BetRecord
+from .models import BetRecord, RoundFeed
+
 
 @admin.register(BetRecord)
 class BetRecordAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "round_id", "player", "amount", "created_at")
+    list_filter = ("player", "created_at")
+    search_fields = ("round_id", "user__username")
+    ordering = ("-created_at",)
+
+
+@admin.register(RoundFeed)
+class RoundFeedAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "user",
-        "description",
-        "won_by",            # 🆕 Show this column in admin table
-        "prev_balance",
-        "credit",
-        "debit",
-        "balance",
-        "status",
-        "date_time",
+        "item_type",
+        "round_id",
+        "official_winner",
+        "player_choice",
+        "bet_amount",
+        "resolver",
+        "final_result",
+        "created_at",
     )
-    list_filter = ("status", "won_by", "user")  # 🆕 Filter by who won
-    search_fields = ("user__username", "description", "won_by")
-    ordering = ("-date_time",)
-    readonly_fields = ("id",)
+    list_filter = ("item_type", "resolver", "official_winner")
+    search_fields = ("round_id",)
+    ordering = ("-created_at",)

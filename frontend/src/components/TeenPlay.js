@@ -1,3 +1,4 @@
+// src/components/TeenPlay.js
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -12,21 +13,32 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Snackbar,
+  Alert,
 } from "@mui/material";
-import axios from "../services/api";
+import api from "../services/api";
 import BackToMainMenuButton from "./common_components/BackToMenuBtn";
 
-// ---------- UI: Card box with BIGGER inner text (rank + suit) ----------
+/* -----------------------------------------------------------
+   API root builder (prevents /api/api/... mistakes)
+   - If baseURL ends with '/api' → use '/bets/...'
+   - Else → use '/api/bets/...'
+----------------------------------------------------------- */
+const buildUrl = (path) => {
+  const base = (api.defaults?.baseURL || "").replace(/\/+$/, "");
+  const root = base.endsWith("/api") ? "/bets" : "/api/bets";
+  return `${root}${path}`;
+};
+
+/* ======================= Card UI ======================= */
 const CardBox = ({ revealed, label }) => {
   const getCardDisplay = (label) => {
     if (!label || label === "flipped_card") {
       return { rank: "", suitSymbol: "🂠", color: "#888" };
     }
-
     const [rank, , suit] = label.split(" ");
     let suitSymbol = "";
     let color = "#000";
-
     switch (suit) {
       case "Hearts":
         suitSymbol = "♥";
@@ -113,7 +125,7 @@ const CardBox = ({ revealed, label }) => {
   );
 };
 
-// ---------- Reveal helpers ----------
+/* ======================= Reveal helpers ======================= */
 const revealMaskForStep = (step, player) => {
   const show = [false, false, false];
   if (player === "A") {
@@ -128,35 +140,20 @@ const revealMaskForStep = (step, player) => {
   return show;
 };
 
-// secondsLeft (10..0) -> step (1..6)
 const deriveRevealStep = (secondsLeftReveal) => {
   const elapsed = Math.max(0, 10 - (secondsLeftReveal ?? 10));
   return Math.min(6, Math.max(1, Math.floor((elapsed / 10) * 6) + 1));
 };
 
-// ---------- Teen Patti ranking ----------
-const RANKS = [
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
-  "9",
-  "10",
-  "J",
-  "Q",
-  "K",
-  "A",
-];
+/* ======================= Teen Patti ranking ======================= */
+const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const RVAL = RANKS.reduce((m, r, i) => {
   m[r] = i + 2;
   return m;
 }, {});
-
 const parseRank = (c) => c?.split(" of ")[0];
 const parseSuit = (c) => c?.split(" of ")[1];
+
 const isSequence = (values) => {
   const v = [...values].sort((a, b) => a - b);
   if (new Set(v).size !== 3) return [false, []];
@@ -175,6 +172,7 @@ const handRank = (cards) => {
   }, {});
   const isFlush = new Set(suits).size === 1;
   const [seq, seqTie] = isSequence(vals);
+
   if (Object.keys(counts).length === 1) return [6, [sortedVals[0]]];
   if (isFlush && seq) return [5, seqTie];
   if (seq) return [4, seqTie];
@@ -202,6 +200,7 @@ const compareHands = (a, b) => {
   return "Tie";
 };
 
+/* ======================= Component ======================= */
 function TeenPlay({ setExpo }) {
   const [serverRound, setServerRound] = useState({
     round_id: null,
@@ -218,6 +217,16 @@ function TeenPlay({ setExpo }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [amount, setAmount] = useState("");
   const [matchBets, setMatchBets] = useState([]);
+  const [placing, setPlacing] = useState(false);
+
+  const [toast, setToast] = useState({
+    open: false,
+    msg: "",
+    severity: "success",
+  });
+
+  const showToast = (msg, severity = "success") =>
+    setToast({ open: true, msg, severity });
 
   const tickRef = useRef(null);
   const roundIdRef = useRef(null);
@@ -229,24 +238,89 @@ function TeenPlay({ setExpo }) {
     phaseRef.current = phase;
   }, [phase]);
 
-  // initial fetch
+  /* ---------- helpers to call backend ---------- */
+  const getCurrentRound = async () => {
+    const url = buildUrl("/current-round/");
+    console.log(
+      "[TeenPlay] GET",
+      url,
+      "baseURL:",
+      api.defaults?.baseURL || "(none)"
+    );
+    const res = await api.get(url);
+    console.log("[TeenPlay] /current-round response:", res.data);
+    return res;
+  };
+
+  const getLastTen = async () => {
+    const url = buildUrl("/feed/last-ten/");
+    console.log("[TeenPlay] GET", url);
+    const res = await api.get(url);
+    console.log("[TeenPlay] /feed/last-ten response:", res.data);
+    return res;
+  };
+
+  const postPlaceBet = async (payload) => {
+    const url = buildUrl("/place-bet/");
+    console.log("[TeenPlay] POST", url, payload);
+    // NOTE: no per-request short timeout — let the global axios timeout handle it
+    const res = await api.post(url, payload, {
+      headers: { "Content-Type": "application/json" },
+    });
+    console.log("[TeenPlay] /place-bet response:", res.data);
+    return res;
+  };
+
+  /* ---------- last 10 feed ---------- */
+  const loadFeed = async () => {
+    try {
+      const { data } = await getLastTen();
+      const items = (data?.items || [])
+        .map((it) => it.final_result || it.official_winner)
+        .filter(Boolean);
+      setLastResults(items.reverse().slice(-10));
+    } catch (e) {
+      console.error("[TeenPlay] failed loading last-ten feed:", e);
+    }
+  };
+
+  /* ---------- initial fetch ---------- */
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    let safetyTimer = null;
+
+    const firstLoad = async () => {
       try {
-        const { data } = await axios.get("/api/bets/current-round/");
+        const { data } = await getCurrentRound();
         if (!mounted) return;
         applySnapshot(data, true);
+        await loadFeed();
       } catch (e) {
-        console.error("Initial /current-round/ failed:", e);
+        console.error("[TeenPlay] initial /current-round/ failed:", e);
+        safetyTimer = setTimeout(async () => {
+          try {
+            const { data } = await getCurrentRound();
+            if (!mounted) return;
+            applySnapshot(data, true);
+            await loadFeed();
+          } catch (ee) {
+            console.error("[TeenPlay] fallback /current-round/ failed:", ee);
+            startLocalClock(); // still tick; boundary fetch will resync
+          }
+        }, 1000);
       }
-    })();
+    };
+
+    firstLoad();
+
     return () => {
       mounted = false;
+      if (safetyTimer) clearTimeout(safetyTimer);
       stopLocalClock();
     };
   }, []);
 
+  /* ---------- local clock ---------- */
   const startLocalClock = () => {
     stopLocalClock();
     tickRef.current = setInterval(() => {
@@ -259,7 +333,7 @@ function TeenPlay({ setExpo }) {
           return 10;
         } else {
           triggerBoundaryFetch();
-          return prev;
+          return prev; // hold at 1 while syncing boundary
         }
       });
     }, 1000);
@@ -272,11 +346,12 @@ function TeenPlay({ setExpo }) {
     }
   };
 
+  /* ---------- phase-change fetches ---------- */
   const triggerRevealStartFetch = async () => {
     if (revealFetchInFlight.current) return;
     revealFetchInFlight.current = true;
     try {
-      const { data } = await axios.get("/api/bets/current-round/");
+      const { data } = await getCurrentRound();
       applySnapshot(data, true);
     } catch (e) {
       console.error("Reveal-start fetch failed:", e);
@@ -290,8 +365,9 @@ function TeenPlay({ setExpo }) {
     if (boundaryFetchInFlight.current) return;
     boundaryFetchInFlight.current = true;
     try {
-      const { data } = await axios.get("/api/bets/current-round/");
+      const { data } = await getCurrentRound();
       applySnapshot(data, true);
+      setTimeout(loadFeed, 300);
     } catch (e) {
       console.error("Boundary fetch failed:", e);
       setTimeout(triggerBoundaryFetch, 1200);
@@ -300,13 +376,17 @@ function TeenPlay({ setExpo }) {
     }
   };
 
+  /* ---------- apply snapshot ---------- */
   const applySnapshot = (data, resetClock = false) => {
-    if (roundIdRef.current !== data.round_id) {
-      if (serverRound.result) {
-        setLastResults((prev) => [...prev, serverRound.result].slice(-10));
-      }
+    const isNewRound = roundIdRef.current !== data.round_id;
+
+    if (isNewRound) {
+      // New server round – refresh feed shortly after
+      setTimeout(loadFeed, 300);
       roundIdRef.current = data.round_id;
       setSelectedPlayer(null);
+      // Clear any straggler bets from previous round just in case
+      setMatchBets([]);
     }
 
     const nextPhase = data.phase || "bet";
@@ -329,52 +409,116 @@ function TeenPlay({ setExpo }) {
     setPhase(nextPhase);
     setSecondsLeft(nextSecs);
 
+    // ✅ Auto-clear match bets when result is declared
+    if (nextPhase === "reveal" && data.result) {
+      setMatchBets([]);
+      showToast(`Round Over — Winner: Player ${data.result}`, "success");
+    }
+    
+    // If a result arrives (end of reveal), clear bets UI and push to local lastResults
+    if (nextPhase === "reveal" && data.result) {
+      // Clear MATCH BETS for that finished round
+      setMatchBets([]);
+
+      // Locally append winner to lastResults (keep max 10)
+      setLastResults((prev) => {
+        const updated = [...prev, data.result].slice(-10);
+        return updated;
+      });
+
+      // Also pull feed once (ensures parity with backend table)
+      setTimeout(loadFeed, 250);
+    }
+
     if (resetClock) {
       stopLocalClock();
       startLocalClock();
     }
+
+    // ✅ When phase resets back to BET (new round), clear old bets table
+    if (nextPhase === "bet" && !isNewRound) {
+      setMatchBets([]);
+      console.log("[TeenPlay] Cleared match bets on new round start");
+    }
   };
 
-  // place bet
+  /* ---------- player selection ---------- */
+  const onSelectPlayer = (player) => {
+    if (phase !== "bet") {
+      showToast("Bet window is closed. Wait for next round.", "info");
+      return;
+    }
+    setSelectedPlayer(player);
+  };
+
+  /* ---------- place bet ---------- */
   const handlePlaceBet = async () => {
     if (!selectedPlayer || !amount) {
-      alert("Please select a player and enter amount!");
+      showToast("Select a player and enter an amount.", "info");
       return;
     }
     if (phase !== "bet") {
-      alert("Bet window closed. Please wait for next round.");
+      showToast("Bet window is closed. Wait for next round.", "info");
       return;
     }
-    try {
-      await axios.post("/api/bets/place-bet/", {
-        round_id: serverRound.round_id,
-        player: selectedPlayer,
-        amount: parseFloat(amount),
-      });
+    const cleanAmount = Number.parseFloat(amount);
+    if (!Number.isFinite(cleanAmount) || cleanAmount <= 0) {
+      showToast("Enter a valid amount (> 0).", "error");
+      return;
+    }
+    if (placing) return;
 
+    const payload = {
+      round_id: serverRound.round_id,
+      player: selectedPlayer,
+      amount: cleanAmount,
+    };
+
+    setPlacing(true);
+    try {
+      const { data } = await postPlaceBet(payload);
+
+      // Append immediately to MATCH BETS
       setMatchBets((prev) => [
         ...prev,
         {
+          id: Date.now(),
+          round_id: serverRound.round_id,
           team: selectedPlayer === "A" ? "Player A" : "Player B",
           rate: "0.96",
-          amount,
+          amount: cleanAmount.toString(),
           mode: "Back",
         },
       ]);
 
       if (typeof setExpo === "function") {
-        setExpo((prev) => prev + parseFloat(amount));
+        setExpo((prev) => prev + cleanAmount);
       }
 
       setAmount("");
       setSelectedPlayer(null);
-      alert("✅ Bet placed successfully!");
+      showToast("✅ Bet placed successfully");
     } catch (err) {
-      console.error("Error placing bet:", err);
-      alert("❌ Failed to place bet. Try again!");
+      console.error("[TeenPlay] place-bet failed:", err);
+      let msg = "❌ Failed to place bet.";
+      if (err?.code === "ERR_NETWORK" || err?.message?.includes("Network Error")) {
+        msg =
+          "❌ Network error placing bet. Check CORS / URL / server availability.";
+        console.log("Axios config used:", err?.config);
+        console.log("Was baseURL correct?", api.defaults?.baseURL);
+      } else if (err?.code === "ECONNABORTED") {
+        msg = "❌ Request timed out. Try again.";
+      } else if (err?.response) {
+        msg = `❌ Bet failed (${err.response.status}).`;
+        console.log("Server responded:", err.response.data);
+      }
+      showToast(msg, "error");
+    } finally {
+      setPlacing(false);
     }
   };
 
+  /* ---------- derived reveal state ---------- */
   const revealStep = useMemo(() => {
     if (phase !== "reveal") return 0;
     return deriveRevealStep(secondsLeft);
@@ -394,6 +538,10 @@ function TeenPlay({ setExpo }) {
     return null;
   }, [phase, revealStep, aLabels, bLabels]);
 
+  // Prefer server result; fall back to local computation at end of reveal
+  const winner = serverRound.result || localWinner;
+
+  /* ---------- styles ---------- */
   const backButtonStyle = (isSelected) => ({
     bgcolor: isSelected ? "#0288d1" : "#64b5f6",
     color: "white",
@@ -402,7 +550,11 @@ function TeenPlay({ setExpo }) {
     "&:hover": { bgcolor: "#42a5f5" },
     transition: "0.2s",
   });
+  const rowBg = (player) =>
+    winner === player ? "#1f7a1f" : selectedPlayer === player ? "#9e9e9e" : "#bfbfbf";
+  const rowTextColor = (player) => (winner === player ? "white" : "#000");
 
+  /* ------------------------------ render ------------------------------ */
   return (
     <Box sx={{ width: "100%", maxWidth: 1200, mx: "auto" }}>
       {/* HEADER */}
@@ -463,7 +615,7 @@ function TeenPlay({ setExpo }) {
             </Box>
           </Box>
 
-          {/* TIMER ONLY */}
+          {/* TIMER */}
           <Box sx={{ textAlign: "center", minWidth: 160 }}>
             <Typography
               variant="subtitle2"
@@ -479,7 +631,7 @@ function TeenPlay({ setExpo }) {
                 justifyContent: "center",
                 fontSize: "1.2rem",
                 boxShadow: "0 0 10px rgba(0,0,0,0.3)",
-                mx: "auto", // center horizontally
+                mx: "auto",
               }}
             >
               {String(secondsLeft).padStart(2, "0")}
@@ -500,7 +652,7 @@ function TeenPlay({ setExpo }) {
         </Box>
       </Box>
 
-      {/* PLAYER ODDS SECTION */}
+      {/* PLAYER ODDS */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -517,7 +669,11 @@ function TeenPlay({ setExpo }) {
               </TableCell>
               <TableCell
                 align="center"
-                sx={{ bgcolor: "#063b65ff", color: "white", fontWeight: "bold" }}
+                sx={{
+                  bgcolor: "#063b65ff",
+                  color: "white",
+                  fontWeight: "bold",
+                }}
               >
                 Back
               </TableCell>
@@ -528,13 +684,14 @@ function TeenPlay({ setExpo }) {
               <TableRow
                 key={player}
                 sx={{
-                  bgcolor: selectedPlayer === player ? "#9e9e9e" : "#bfbfbf",
+                  bgcolor: rowBg(player),
+                  transition: "background-color 0.2s ease",
                 }}
               >
                 <TableCell
                   align="center"
                   sx={{
-                    color: "#000",
+                    color: rowTextColor(player),
                     fontWeight: 600,
                     borderRight: "1px solid white",
                   }}
@@ -544,7 +701,7 @@ function TeenPlay({ setExpo }) {
                 <TableCell
                   align="center"
                   sx={backButtonStyle(selectedPlayer === player)}
-                  onClick={() => setSelectedPlayer(player)}
+                  onClick={() => onSelectPlayer(player)}
                 >
                   <Typography sx={{ lineHeight: 1 }}>0.96</Typography>
                   <Typography sx={{ lineHeight: 1 }}>0</Typography>
@@ -566,29 +723,32 @@ function TeenPlay({ setExpo }) {
           justifyContent: "flex-end",
           bgcolor: "#e0e0e0",
           p: 1,
+          gap: 0.5,
         }}
       >
         {lastResults.map((res, i) => (
           <Box
-            key={i}
+            key={`${res}-${i}`}
             sx={{
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
               borderRadius: "50%",
-              bgcolor: res === "A" ? "green" : "red",
-              color: "white",
+              bgcolor: "#1f7a1f", // green
+              color: "#ffeb3b", // yellow letter
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              mx: 0.5,
+              fontWeight: 800,
+              fontSize: "0.95rem",
             }}
+            title={res === "A" ? "Player A" : "Player B"}
           >
             {res}
           </Box>
         ))}
       </Box>
 
-      {/* AMOUNT INPUT + PLACE BET */}
+      {/* AMOUNT + PLACE BET */}
       <Box sx={{ bgcolor: "#efebebff", py: 2, px: 2 }}>
         <Grid container spacing={1} alignItems="center">
           <Grid item xs={12} sm={3}>
@@ -610,15 +770,19 @@ function TeenPlay({ setExpo }) {
               color={phase === "bet" ? "success" : "error"}
               fullWidth
               onClick={handlePlaceBet}
-              disabled={!selectedPlayer || !amount || phase !== "bet"}
+              disabled={placing || !selectedPlayer || !amount || phase !== "bet"}
             >
-              {phase === "bet" ? "PLACE BET" : "BET CLOSED"}
+              {placing
+                ? "PLACING..."
+                : phase === "bet"
+                ? "PLACE BET"
+                : "BET CLOSED"}
             </Button>
           </Grid>
         </Grid>
       </Box>
 
-      {/* MATCH BETS TABLE */}
+      {/* MATCH BETS */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -650,8 +814,8 @@ function TeenPlay({ setExpo }) {
                 </TableCell>
               </TableRow>
             ) : (
-              matchBets.map((bet, i) => (
-                <TableRow key={i}>
+              matchBets.map((bet) => (
+                <TableRow key={bet.id}>
                   <TableCell>{bet.team}</TableCell>
                   <TableCell>{bet.rate}</TableCell>
                   <TableCell>{bet.amount}</TableCell>
@@ -666,6 +830,23 @@ function TeenPlay({ setExpo }) {
       <Box sx={{ mt: 2 }}>
         <BackToMainMenuButton />
       </Box>
+
+      {/* Toast */}
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={2500}
+        onClose={() => setToast((t) => ({ ...t, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setToast((t) => ({ ...t, open: false }))}
+          severity={toast.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {toast.msg}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
