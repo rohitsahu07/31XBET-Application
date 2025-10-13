@@ -146,7 +146,21 @@ const deriveRevealStep = (secondsLeftReveal) => {
 };
 
 /* ======================= Teen Patti ranking ======================= */
-const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const RANKS = [
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "J",
+  "Q",
+  "K",
+  "A",
+];
 const RVAL = RANKS.reduce((m, r, i) => {
   m[r] = i + 2;
   return m;
@@ -408,7 +422,11 @@ function TeenPlay({ setExpo }) {
 
     const nextPhase = data.phase || "bet";
     const nextSecs =
-      typeof data.seconds_left === "number" ? data.seconds_left : nextPhase === "reveal" ? 10 : 20;
+      typeof data.seconds_left === "number"
+        ? data.seconds_left
+        : nextPhase === "reveal"
+        ? 10
+        : 20;
 
     // NEW: capture previous phase BEFORE we mutate phase state
     const prevPhase = phaseRef.current; // <— this stays in sync via the useEffect above
@@ -430,13 +448,16 @@ function TeenPlay({ setExpo }) {
       setMatchBets([]);
       showToast(`Round Over — Winner: Player ${data.result}`, "success");
       if (typeof setExpo === "function") setExpo(0);
-      refreshProfile();               // <— pulls expo=0 from backend (new round has new id)
+      refreshProfile(); // <— pulls expo=0 from backend (new round has new id)
       setLastResults((prev) => [...prev.slice(-9), data.result]);
       setTimeout(loadFeed, 250);
     }
 
     // ✅ Unified expo refresh logic to avoid double /profile/ calls
-    if ((prevPhase === "reveal" && nextPhase === "bet") || (isNewRound && nextPhase === "bet")) {
+    if (
+      (prevPhase === "reveal" && nextPhase === "bet") ||
+      (isNewRound && nextPhase === "bet")
+    ) {
       if (typeof setExpo === "function") setExpo(0);
       setTimeout(() => {
         refreshProfile();
@@ -449,12 +470,10 @@ function TeenPlay({ setExpo }) {
       startLocalClock();
     }
 
-
     if (nextPhase === "bet" && !isNewRound) {
       setMatchBets([]);
     }
   };
-
 
   /* ---------- player selection ---------- */
   const onSelectPlayer = (player) => {
@@ -490,7 +509,6 @@ function TeenPlay({ setExpo }) {
 
     setPlacing(true);
     try {
-      const { data } = await postPlaceBet(payload);
 
       // Append immediately to MATCH BETS
       setMatchBets((prev) => [
@@ -515,7 +533,10 @@ function TeenPlay({ setExpo }) {
     } catch (err) {
       console.error("[TeenPlay] place-bet failed:", err);
       let msg = "❌ Failed to place bet.";
-      if (err?.code === "ERR_NETWORK" || err?.message?.includes("Network Error")) {
+      if (
+        err?.code === "ERR_NETWORK" ||
+        err?.message?.includes("Network Error")
+      ) {
         msg =
           "❌ Network error placing bet. Check CORS / URL / server availability.";
         console.log("Axios config used:", err?.config);
@@ -565,7 +586,11 @@ function TeenPlay({ setExpo }) {
     transition: "0.2s",
   });
   const rowBg = (player) =>
-    winner === player ? "#1f7a1f" : selectedPlayer === player ? "#9e9e9e" : "#bfbfbf";
+    winner === player
+      ? "#1f7a1f"
+      : selectedPlayer === player
+      ? "#9e9e9e"
+      : "#bfbfbf";
   const rowTextColor = (player) => (winner === player ? "white" : "#000");
 
   /* ------------------------------ render ------------------------------ */
@@ -784,7 +809,9 @@ function TeenPlay({ setExpo }) {
               color={phase === "bet" ? "success" : "error"}
               fullWidth
               onClick={handlePlaceBet}
-              disabled={placing || !selectedPlayer || !amount || phase !== "bet"}
+              disabled={
+                placing || !selectedPlayer || !amount || phase !== "bet"
+              }
             >
               {placing
                 ? "PLACING..."
@@ -841,7 +868,7 @@ function TeenPlay({ setExpo }) {
         </Table>
       </TableContainer>
 
-      <Box sx={{ mt: 2 , mb:2}}>
+      <Box sx={{ mt: 2, mb: 2 }}>
         <BackToMainMenuButton />
       </Box>
 

@@ -32,12 +32,12 @@ function Header() {
 
   const handleLogout = async () => {
     try {
-      const refresh = localStorage.getItem("refresh_token");
-      const access = localStorage.getItem("access_token");
+      const refresh = sessionStorage.getItem("refresh_token");
+      const access = sessionStorage.getItem("access_token");
 
       if (!refresh || !access) {
         console.warn("⚠️ No tokens found, redirecting to login...");
-        localStorage.clear();
+        sessionStorage.clear();
         navigate("/");
         return;
       }
@@ -60,8 +60,8 @@ function Header() {
       console.error("❌ Logout failed:", error.response?.data || error.message);
     } finally {
       // ✅ Clear tokens and redirect to login page
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
+      sessionStorage.removeItem("access_token");
+      sessionStorage.removeItem("refresh_token");
       navigate("/");
     }
   };

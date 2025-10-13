@@ -28,8 +28,8 @@ const Login = () => {
 
     try {
       const res = await axios.post('/api/token/', { username, password });
-      localStorage.setItem('access_token', res.data.access);
-      localStorage.setItem('refresh_token', res.data.refresh);
+      sessionStorage.setItem('access_token', res.data.access);
+      sessionStorage.setItem('refresh_token', res.data.refresh);
       const userRes = await axios.get('/api/users/', {
         headers: { Authorization: `Bearer ${res.data.access}` }
       });

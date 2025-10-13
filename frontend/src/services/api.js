@@ -12,8 +12,8 @@ api.interceptors.request.use(
   (config) => {
     // accept both key names to be safe
     const token =
-      localStorage.getItem("access") ||
-      localStorage.getItem("access_token");
+      sessionStorage.getItem("access") ||
+      sessionStorage.getItem("access_token");
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
