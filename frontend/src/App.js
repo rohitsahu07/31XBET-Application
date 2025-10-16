@@ -39,7 +39,7 @@ const AppContent = () => {
   return (
     <>
       {showHeader && <Header />}
-      {showChipsAndExpo && <ChipsAndExpo expo={expo} />} {/* ✅ Global component */}
+      {showChipsAndExpo && <ChipsAndExpo skipFetch mockBalance={7500} mockIsAdmin={false} />} {/* ✅ Global component */}
       {showScrollingBar && <ScrollingTextBar />}
       
 
