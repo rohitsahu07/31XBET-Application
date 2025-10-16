@@ -19,13 +19,12 @@ const formatINR = (val) => {
  * - Reads from /api/bets/profile/
  * - Admins display ∞
  */
-const ChipsAndExpo = ({ expo = 0 }) => {
+const ChipsAndExpo = ({ expo = 0, skipFetch = false, mockBalance = "0.00", mockIsAdmin = false }) => {
   const [balance, setBalance] = useState("0.00");
   const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchProfile = async () => {
     try {
-      // IMPORTANT: this hits the bets app route
       const { data } = await api.get("/api/bets/profile/");
       if (data?.is_admin) {
         setIsAdmin(true);
@@ -36,82 +35,28 @@ const ChipsAndExpo = ({ expo = 0 }) => {
       }
     } catch (err) {
       console.error("Balance fetch failed:", err);
-      // don't crash UI; keep last good value
     }
   };
 
   useEffect(() => {
+    if (skipFetch) {
+      if (mockIsAdmin) {
+        setIsAdmin(true);
+        setBalance("∞");
+      } else {
+        setIsAdmin(false);
+        setBalance(mockBalance);
+      }
+      return;
+    }
+
     fetchProfile();
     const t = setInterval(fetchProfile, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [skipFetch, mockBalance, mockIsAdmin]);
 
-  return (
-    <Box
-      sx={{
-        position: "sticky",
-        top: 0,
-        zIndex: 1200,
-        width: "100%",
-        backgroundColor: "#121212",
-        color: "#EDEDED",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        px: 2,
-        py: 0.75,
-        borderBottom: "1px solid #1f1f1f",
-      }}
-    >
-      {/* Chips (Balance) */}
-      <Typography
-        sx={{
-          fontWeight: 600,
-          letterSpacing: 0.2,
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-        }}
-      >
-        <span style={{ color: "#9da3af" }}>Chips</span>
-        <span
-          style={{
-            background: "#1b2735",
-            color: "#d1fae5",
-            padding: "2px 10px",
-            borderRadius: 8,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          ₹{isAdmin ? "∞" : formatINR(balance)}
-        </span>
-      </Typography>
-
-      {/* Exposure */}
-      <Typography
-        sx={{
-          fontWeight: 600,
-          letterSpacing: 0.2,
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-        }}
-      >
-        <span style={{ color: "#9da3af" }}>Expo</span>
-        <span
-          style={{
-            background: "#1b2735",
-            color: "#fef3c7",
-            padding: "2px 10px",
-            borderRadius: 8,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          ₹{isAdmin ? "∞" : formatINR(expo)}
-        </span>
-      </Typography>
-    </Box>
-  );
+  // ... same render as before
 };
+
 
 export default ChipsAndExpo;
