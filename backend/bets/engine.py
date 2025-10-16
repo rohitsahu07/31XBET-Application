@@ -153,7 +153,7 @@ def new_round_state(now: int) -> dict:
     b = _deal_hand()
     winner = _compare_teen_patti(a,b)
     rid = random.randint(10**14, 10**15-1)
-    print(f"[new-round] id={rid} start={now} A={pretty(a)}  B={pretty(b)}  winner={winner}")
+    # print(f"[new-round] id={rid} start={now} A={pretty(a)}  B={pretty(b)}  winner={winner}")
     return {
         "round_id": rid,
         "start_time": now,
@@ -205,7 +205,7 @@ def settle_round(round_row: Round):
 
     rid = round_row.round_id
     winner = round_row.winner
-    print(f"[settle_round] Settling round {rid} (winner={winner})")
+    # print(f"[settle_round] Settling round {rid} (winner={winner})")
 
     bets = Bet.objects.select_for_update().filter(round=round_row, status="PLACED")
     now = timezone.now()
@@ -237,12 +237,12 @@ def settle_round(round_row: Round):
                     debit=Decimal("0.00"),
                     balance=new_bal,
                 )
-                print(f"[settle_round] ✅ {user.username} won +{bet.payout}")
+                # print(f"[settle_round] ✅ {user.username} won +{bet.payout}")
             else:
                 # Lost: no money movement at settle time (stake was debited on placement)
                 print(f"[settle_round] ❌ {user.username} lost {bet.stake}")
 
-    print(f"[settle_round] Round {rid} settled.")
+    # print(f"[settle_round] Round {rid} settled.")
 
 # ─────────────────────────────────────────────
 # Engine loop

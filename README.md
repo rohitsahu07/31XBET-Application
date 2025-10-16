@@ -1,4 +1,4 @@
-# Betting App
+# Betting App Keerti
 
 A hierarchical betting app with Django backend and React frontend. Users: Super Admin > Master Admin > Admin > Client. Betting on cricket (live via API) and casino (simulated).
 
