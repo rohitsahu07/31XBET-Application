@@ -1,16 +1,22 @@
 # backend/bets/views.py
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from channels.db import database_sync_to_async
 
 from decimal import Decimal, InvalidOperation
-import random, time
+import time
+
 from django.db import transaction, models
+from django.db.models import F
 from django.utils import timezone
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.response import Response
 
 from .models import Bet, Round
-from ledger.models import Transaction
 from users.models import User
 from .engine import (
     CURRENT_ROUND,
@@ -20,7 +26,6 @@ from .engine import (
     calc_cycle,
     reveal_step,
     mask_cards_for_step,
-    pretty,
 )
 
 # ─────────────────────────────────────────────
@@ -31,6 +36,7 @@ def _ts_to_dt(ts: int):
         timezone.datetime.fromtimestamp(int(ts)),
         timezone.get_current_timezone(),
     )
+
 
 def _ensure_round_from_engine(engine_obj) -> Round:
     """
@@ -59,7 +65,7 @@ def _ensure_round_from_engine(engine_obj) -> Round:
     if defaults["player_b_cards"] and not r.player_b_cards:
         r.player_b_cards = defaults["player_b_cards"]; changed = True
 
-    # If engine already has official result, persist winner/ended_at
+    # If engine already has official result, persist winner/ended_at (for visuals/history)
     if engine_obj.get("official_result") and not r.winner:
         r.winner = engine_obj["official_result"]; changed = True
         r.ended_at = timezone.now(); changed = True
@@ -90,7 +96,6 @@ def profile(request):
     global CURRENT_ROUND
     current_round_id = CURRENT_ROUND["round_id"] if CURRENT_ROUND else None
 
-    # Bet model: open = status=PLACED; filter via related round.round_id
     open_bets = Bet.objects.filter(
         user=user,
         status="PLACED",
@@ -123,7 +128,7 @@ def current_round(request):
         step = reveal_step(sec)
 
         if phase == "bet":
-            a_cards, b_cards = [FLIPPED]*3, [FLIPPED]*3
+            a_cards, b_cards = [FLIPPED] * 3, [FLIPPED] * 3
             result, a_full, b_full = None, None, None
         else:
             a_cards = mask_cards_for_step(CURRENT_ROUND["player_a_full"], step, "A")
@@ -148,7 +153,7 @@ def current_round(request):
 
 
 # ─────────────────────────────────────────────
-# Place Bet
+# Place Bet  — Player always wins mode (instant settle)
 # ─────────────────────────────────────────────
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -181,44 +186,49 @@ def place_bet(request):
             if phase != "bet":
                 return Response({"error": "Bet window closed"}, status=400)
 
-            # check balance
+            # pre-check funds
             if user.balance < amount:
                 return Response({"error": "Insufficient balance"}, status=400)
 
-            # biased result selection (preserve your original weights)
-            result = (
-                random.choices(["A", "B"], weights=[3, 7])[0]
-                if player == "A"
-                else random.choices(["A", "B"], weights=[7, 3])[0]
-            )
-
-            # Make sure a Round row exists (no winner set during bet phase)
+            # Ensure a Round row exists (do not set winner here)
             round_row = _ensure_round_from_engine(CURRENT_ROUND)
 
-            with transaction.atomic():
-                # Deduct chips (🟢 no Transaction row for stake)
-                prev_bal = user.balance
-                new_bal = prev_bal - amount
-                user.balance = new_bal
-                user.save(update_fields=["balance"])
+            # EVEN-MONEY payout (2x). Adjust if you use odds elsewhere.
+            payout = (amount * Decimal("2.00")).quantize(Decimal("0.01"))
+            net = (payout - amount).quantize(Decimal("0.01"))
 
-                # Bet row (open/placed)
-                Bet.objects.create(
+            with transaction.atomic():
+                # 1) debit stake atomically
+                User.objects.filter(id=user.id).update(balance=F("balance") - amount)
+                user.refresh_from_db(fields=["balance"])
+
+                # 2) create bet as WON immediately (instant settle)
+                bet = Bet.objects.create(
                     user=user,
                     round=round_row,
                     selection=player,
                     stake=amount,
-                    status="PLACED",
+                    status="WON",                 # instantly won
+                    payout=payout,               # total credited amount
+                    net=net,                     # profit (for reporting/UI)
+                    settled_at=timezone.now(),
                 )
 
-        # SAME RESPONSE SHAPE
+                # 3) credit payout atomically
+                User.objects.filter(id=user.id).update(balance=F("balance") + payout)
+                user.refresh_from_db(fields=["balance"])
+
+                # 4) live update (balance + current expo) to the user over WS
+                broadcast_user_profile(user.id)
+
         return Response(
             {
-                "message": "Bet placed successfully",
+                "message": "Bet placed and settled (win) successfully",
                 "round_id": round_id,
                 "player": player,
                 "bet_amount": str(amount),
-                "final_result": result,
+                "payout": str(payout),
+                "final_result": player,  # for client display if needed
             },
             status=200,
         )
@@ -226,6 +236,7 @@ def place_bet(request):
     except Exception as e:
         print(f"[place-bet] ERROR: {e}")
         return Response({"error": str(e)}, status=500)
+
 
 # ─────────────────────────────────────────────
 # Last 10 Feed Endpoint (used by frontend)
@@ -249,7 +260,116 @@ def last_ten_feed(request):
         formatted.append({
             "round_id": it["round_id"],
             "final_result": it["winner"],         # mirror the previous behavior
-            "official_winner": it["winner"],      # (we used to store both; now winner is official)
+            "official_winner": it["winner"],      # winner is official
             "created_at": it["created_at"],
         })
     return Response({"items": formatted}, status=200)
+
+
+# ─────────────────────────────────────────────
+# WebSocket: profile broadcast + consumers
+# ─────────────────────────────────────────────
+def _compute_profile_snapshot(user_id: int):
+    """
+    Returns dict with current balance and open exposure (current round PLACED bets).
+    Mirrors your /profile logic so UI shows same numbers.
+    """
+    from django.db.models import Sum  # local import to avoid circulars
+    from decimal import Decimal
+
+    global CURRENT_ROUND
+    current_round_id = CURRENT_ROUND["round_id"] if CURRENT_ROUND else None
+
+    try:
+        u = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return {"balance": "0.00", "expo": "0.00", "is_admin": False}
+
+    if u.is_superuser:
+        return {"balance": "∞", "expo": "∞", "is_admin": True}
+
+    expo_qs = Bet.objects.filter(
+        user_id=user_id,
+        status="PLACED",
+        round__round_id=str(current_round_id) if current_round_id else None,
+    )
+    expo = expo_qs.aggregate(total=Sum("stake"))["total"] or Decimal("0.00")
+
+    return {
+        "balance": f"{u.balance:.2f}",
+        "expo": f"{expo:.2f}",
+        "is_admin": False,
+    }
+
+
+def broadcast_user_profile(user_id: int):
+    """
+    Send a live 'profile_update' to the user's personal WS group.
+    Call this after any balance/exposure change.
+    """
+    data = _compute_profile_snapshot(user_id)
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"user_{user_id}",
+        {"type": "profile_update", "data": data},
+    )
+
+
+class UserProfileConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Per-user WebSocket:
+      - Joins group user_<id>
+      - On connect, sends an initial snapshot
+      - Receives future 'profile_update' events via group_send
+    """
+    async def connect(self):
+        user = self.scope.get("user")  # set by SimpleJWT middleware in asgi.py
+        if not user or not user.is_authenticated:
+            await self.close(code=4401)
+            return
+        self.user_id = user.id
+        self.group_name = f"user_{self.user_id}"
+
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+        # Initial snapshot
+        data = await database_sync_to_async(_compute_profile_snapshot)(self.user_id)
+        await self.send_json({"type": "profile_update", **data})
+
+    async def disconnect(self, code):
+        if hasattr(self, "group_name"):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def receive_json(self, content, **kwargs):
+        # Optional: implement ping/pong if needed
+        pass
+
+    async def profile_update(self, event):
+        await self.send_json({"type": "profile_update", **event["data"]})
+
+
+class RoundConsumer(AsyncJsonWebsocketConsumer):
+    """
+    Optional global channel if you want to broadcast round ticks.
+    Join group 'rounds' and use group_send(..., {'type':'round_update', 'data': {...}})
+    """
+    group_name = "rounds"
+
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close(code=4401)
+            return
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, code):
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def receive_json(self, content, **kwargs):
+        # Optional: handle client messages
+        pass
+
+    async def round_update(self, event):
+        await self.send_json({"type": "round_update", **event["data"]})

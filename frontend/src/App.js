@@ -12,7 +12,7 @@ import store from "./redux/store";
 
 // Components
 import Header from "./components/Header";
-import ChipsAndExpo from "./components/ChipsandExpo"; // ✅ fixed import (case-sensitive)
+import ChipsAndExpo from "./components/ChipsandExpo";
 import ScrollingTextBar from "./components/common_components/ScrollingBar";
 
 // Pages

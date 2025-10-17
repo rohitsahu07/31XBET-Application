@@ -123,7 +123,6 @@ class Bet(models.Model):
     class Meta:
         ordering = ("-created_at",)
         constraints = [
-            # A user should not have duplicate identical PLACED bets for the same round+selection+stake accidentally.
             models.UniqueConstraint(
                 fields=("user", "round", "selection", "stake", "status"),
                 condition=models.Q(status="PLACED"),
