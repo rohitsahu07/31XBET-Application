@@ -1,4 +1,3 @@
-// frontend/src/services/api.js
 import axios from "axios";
 
 /* token helpers */
@@ -21,13 +20,27 @@ export const clearTokens = () => {
 
 const api = axios.create({ baseURL: "/api" });
 
-/* attach Authorization automatically */
+/* attach Authorization automatically + normalize urls */
 api.interceptors.request.use((config) => {
   const token = getAccess();
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // 🔧 normalize path to avoid "/api/api/..." 404s
+  // - leave absolute URLs alone
+  let url = config.url || "";
+  const isAbsolute = /^https?:\/\//i.test(url) || /^wss?:\/\//i.test(url);
+  if (!isAbsolute) {
+    if (!url.startsWith("/")) url = `/${url}`;
+    // if caller mistakenly uses "/api/..." strip the leading "/api"
+    if (url.startsWith("/api/")) url = url.replace(/^\/api\//, "/");
+    // collapse accidental double slashes
+    url = url.replace(/\/{2,}/g, "/");
+    config.url = url;
+  }
+
   return config;
 });
 

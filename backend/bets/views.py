@@ -3,14 +3,13 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
-
 from decimal import Decimal, InvalidOperation
 import time
+from threading import Timer
 
-from django.db import transaction, models
+from django.db import transaction, models, close_old_connections
 from django.db.models import F
 from django.utils import timezone
-
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -156,15 +155,99 @@ def current_round(request):
 
 
 # ─────────────────────────────────────────────
-# Place Bet  — Player always wins mode (instant settle)
+# Deferred settlement helper (credit after delay)
+# ─────────────────────────────────────────────
+def _settle_bet_after_delay(
+    bet_id: int,
+    user_id: int,
+    round_db_id: int,
+    round_public_id: str,
+    selection: str,
+    delay_seconds: int,
+):
+    """
+    After delay_seconds:
+      - Set Round.winner (if blank) to selection
+      - Mark Bet as WON with payout=2x
+      - Credit user's balance
+      - Broadcast profile_update
+      - Print timestamps
+    """
+    def _run():
+        # ensure good DB conn handling in background thread
+        close_old_connections()
+        try:
+            print(
+                f"[credit:start] t={timezone.now().strftime('%Y-%m-%d %H:%M:%S')}  "
+                f"bet_id={bet_id} user_id={user_id} delay={delay_seconds}s"
+            )
+
+            now_dt = timezone.now()
+
+            with transaction.atomic():
+                # Lock & update round winner if still empty
+                r = Round.objects.select_for_update().filter(id=round_db_id).first()
+                if r and not r.winner:
+                    r.winner = selection
+                    r.ended_at = now_dt
+                    r.save(update_fields=["winner", "ended_at"])
+
+                # Lock bet, settle if still PLACED
+                bet = (
+                    Bet.objects.select_for_update()
+                    .select_related("user", "round")
+                    .filter(id=bet_id)
+                    .first()
+                )
+                if not bet:
+                    print(f"[credit:skip] bet_id={bet_id} not found")
+                    return
+                if bet.status != "PLACED":
+                    print(f"[credit:skip] bet_id={bet_id} already settled ({bet.status})")
+                    return
+
+                payout = (bet.stake * Decimal("2.00")).quantize(Decimal("0.01"))
+                net = (payout - bet.stake).quantize(Decimal("0.01"))
+
+                bet.status = "WON"
+                bet.payout = payout
+                bet.net = net
+                bet.settled_at = now_dt
+                bet.save(update_fields=["status", "payout", "net", "settled_at"])
+
+                # Credit payout
+                User.objects.filter(id=user_id).update(balance=F("balance") + payout)
+
+            # WS update (chips/expo)
+            broadcast_user_profile(user_id)
+
+            print(
+                f"[credit:done ] t={timezone.now().strftime('%Y-%m-%d %H:%M:%S')}  "
+                f"bet_id={bet_id} user_id={user_id}"
+            )
+        except Exception as e:
+            print(f"[credit:error] bet_id={bet_id} user_id={user_id} err={e}")
+        finally:
+            close_old_connections()
+
+    Timer(delay_seconds, _run).start()
+
+
+# ─────────────────────────────────────────────
+# Place Bet — deduct now, credit after bet_left + 10s
 # ─────────────────────────────────────────────
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def place_bet(request):
+    """
+    Client may send: bet_seconds_left (int)
+    Credit delay = min(client_bet_left, server_bet_left) + 10 (reveal)
+    """
     try:
         round_id = request.data.get("round_id")
         player = request.data.get("player")
         amount_raw = request.data.get("amount")
+        client_bet_left_raw = request.data.get("bet_seconds_left")
         user: User = request.user
 
         try:
@@ -181,63 +264,93 @@ def place_bet(request):
             if CURRENT_ROUND is None:
                 CURRENT_ROUND = new_round_state(now)
 
-            # hard sync round ids to avoid cross-round post
+            # avoid cross-round posting
             if str(CURRENT_ROUND["round_id"]) != str(round_id):
                 return Response({"error": "Round mismatch"}, status=400)
 
-            sec, phase, _ = calc_cycle(now)
+            sec, phase, server_seconds_left = calc_cycle(now)
             if phase != "bet":
                 return Response({"error": "Bet window closed"}, status=400)
 
-            # ── New: stake bounds ─────────────────────────
-            if amount < MIN_STAKE:
-                return Response({"error": "Bet should be greater than 100"}, status=400)
-            if amount > MAX_STAKE:
-                return Response({"error": "Bet should be less than 10000"}, status=400)
+        # stake bounds
+        if amount < MIN_STAKE:
+            return Response({"error": "Bet should be greater than 100"}, status=400)
+        if amount > MAX_STAKE:
+            return Response({"error": "Bet should be less than 10000"}, status=400)
 
-            # pre-check funds
-            if user.balance < amount:
-                return Response({"error": "Insufficient balance"}, status=400)
+        # funds
+        if user.balance < amount:
+            return Response({"error": "Insufficient balance"}, status=400)
 
-            # Ensure a Round row exists (do not set winner here)
-            round_row = _ensure_round_from_engine(CURRENT_ROUND)
+        # resolve bet-left seconds
+        def _to_int(v, default=None):
+            try:
+                iv = int(v)
+                return iv
+            except Exception:
+                return default
 
-            # EVEN-MONEY payout (2x). Adjust if you use odds elsewhere.
-            payout = (amount * Decimal("2.00")).quantize(Decimal("0.01"))
-            net = (payout - amount).quantize(Decimal("0.01"))
+        client_left = _to_int(client_bet_left_raw, None)
+        if client_left is None or client_left < 0 or client_left > 120:
+            bet_left = server_seconds_left
+            src = "server"
+        else:
+            bet_left = min(max(client_left, 0), server_seconds_left)
+            src = "min(client,server)"
 
-            with transaction.atomic():
-                # 1) debit stake atomically
-                User.objects.filter(id=user.id).update(balance=F("balance") - amount)
-                user.refresh_from_db(fields=["balance"])
+        REVEAL_SECONDS = 10
+        delay_seconds = max(int(bet_left) + REVEAL_SECONDS, 1)
 
-                # 2) create bet as WON immediately (instant settle)
-                bet = Bet.objects.create(
-                    user=user,
-                    round=round_row,
-                    selection=player,
-                    stake=amount,
-                    status="WON",                 # instantly won
-                    payout=payout,               # total credited amount
-                    net=net,                     # profit (for reporting/UI)
-                    settled_at=timezone.now(),
-                )
+        # ensure Round row exists
+        round_row = _ensure_round_from_engine(CURRENT_ROUND)
 
-                # 3) credit payout atomically
-                User.objects.filter(id=user.id).update(balance=F("balance") + payout)
-                user.refresh_from_db(fields=["balance"])
+        # print: deduct start
+        print(
+            f"[deduct:start] t={timezone.now().strftime('%Y-%m-%d %H:%M:%S')}  "
+            f"user={user.username}({user.id}) amount={amount} round={round_id} sel={player} "
+            f"bet_left={bet_left}s(src={src}) reveal=10s delay={delay_seconds}s"
+        )
 
-                # 4) live update (balance + current expo) to the user over WS
-                broadcast_user_profile(user.id)
+        with transaction.atomic():
+            # debit
+            User.objects.filter(id=user.id).update(balance=F("balance") - amount)
+            user.refresh_from_db(fields=["balance"])
+
+            # create PLACED bet
+            bet = Bet.objects.create(
+                user=user,
+                round=round_row,
+                selection=player,
+                stake=amount,
+                status="PLACED",
+            )
+
+        # print: deduct done
+        print(
+            f"[deduct:done ] t={timezone.now().strftime('%Y-%m-%d %H:%M:%S')}  "
+            f"user={user.username}({user.id}) new_balance={user.balance}"
+        )
+
+        # immediate WS update (balance/expo)
+        broadcast_user_profile(user.id)
+
+        # schedule settlement
+        _settle_bet_after_delay(
+            bet_id=bet.id,
+            user_id=user.id,
+            round_db_id=round_row.id,
+            round_public_id=round_row.round_id,
+            selection=player,
+            delay_seconds=delay_seconds,
+        )
 
         return Response(
             {
-                "message": "Bet placed and settled (win) successfully",
+                "message": f"Bet placed. Stake deducted now; win will be credited after {delay_seconds}s.",
                 "round_id": round_id,
                 "player": player,
                 "bet_amount": str(amount),
-                "payout": str(payout),
-                "final_result": player,  # for client display if needed
+                "delay_seconds": delay_seconds,
             },
             status=200,
         )
@@ -268,8 +381,8 @@ def last_ten_feed(request):
     for it in items_qs:
         formatted.append({
             "round_id": it["round_id"],
-            "final_result": it["winner"],         # mirror the previous behavior
-            "official_winner": it["winner"],      # winner is official
+            "final_result": it["winner"],
+            "official_winner": it["winner"],
             "created_at": it["created_at"],
         })
     return Response({"items": formatted}, status=200)
@@ -351,10 +464,10 @@ class UserProfileConsumer(AsyncJsonWebsocketConsumer):
     async def profile_update(self, event):
         await self.send_json({"type": "profile_update", **event["data"]})
 
+    # ✅ handles "force.logout" (dot) which maps to force_logout
     async def force_logout(self, event):
         await self.send_json({"type": "force_logout", **(event.get("data") or {})})
         await self.close(code=4403)
-
 
 
 class RoundConsumer(AsyncJsonWebsocketConsumer):
@@ -376,7 +489,6 @@ class RoundConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive_json(self, content, **kwargs):
-        # Optional: handle client messages
         pass
 
     async def round_update(self, event):

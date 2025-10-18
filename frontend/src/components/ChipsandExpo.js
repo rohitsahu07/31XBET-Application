@@ -1,7 +1,6 @@
-// src/components/ChipsAndExpo.js
 import React, { useEffect, useState } from "react";
 import { Box, Typography } from "@mui/material";
-import api from "../services/api"; // kept for optional fallback fetch
+import api from "../services/api"; // axios with baseURL="/api"
 
 /**
  * Toggle this to re-enable the API later.
@@ -104,7 +103,8 @@ const ChipsAndExpo = ({ expo = 0 }) => {
 
   const fetchProfile = async () => {
     try {
-      const { data } = await api.get("/api/bets/profile/");
+      // ✅ Correct relative path (baseURL="/api")
+      const { data } = await api.get("/bets/profile/");
       if (data?.is_admin) {
         setIsAdmin(true);
         setBalance("∞");
@@ -142,6 +142,7 @@ const ChipsAndExpo = ({ expo = 0 }) => {
       ws.onmessage = (evt) => {
         try {
           const msg = JSON.parse(evt.data);
+          // All server pushes include a type now
           if (msg.type === "profile_update") {
             if (typeof msg.is_admin === "boolean") setIsAdmin(msg.is_admin);
             else setIsAdmin(false);
@@ -149,6 +150,9 @@ const ChipsAndExpo = ({ expo = 0 }) => {
             if (msg.balance !== undefined) setBalance(msg.balance);
             // If you want expo from WS instead of prop:
             // if (msg.expo !== undefined) setExpoState(msg.expo);
+          } else if (msg.type === "force_logout") {
+            // Optional: handle server-initiated logout UX
+            // e.g., show toast then redirect
           }
         } catch {
           // ignore malformed messages
@@ -160,9 +164,12 @@ const ChipsAndExpo = ({ expo = 0 }) => {
         fetchProfile();
       };
 
-      ws.onclose = async () => {
+      ws.onclose = async (ev) => {
         if (closed) return;
-        // likely auth/expiry/disconnect; try refresh + retry after a bit
+        // For auth-close (4401/4403), don't hammer retries
+        if (ev && (ev.code === 4401 || ev.code === 4403)) {
+          return;
+        }
         await new Promise((r) => setTimeout(r, 1000));
         connect();
       };

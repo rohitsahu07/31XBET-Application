@@ -1,29 +1,34 @@
+# backend/betting_app/asgi.py
 """
 ASGI entrypoint with Django Channels + SimpleJWT auth for WebSockets.
 - Reads JWT from ?token=... or Authorization: Bearer ...
 - Validates the token AND checks 'sid' against User.session_key
 - Exposes /ws/profile/ and /ws/rounds/ routes
 """
-
 import os
 from urllib.parse import parse_qs
 
+# 1) Configure settings FIRST
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "betting_app.settings")
+
+# 2) Set up Django BEFORE importing anything that touches models/settings
+import django
+django.setup()
+
+# 3) Now it's safe to import Django/Channels things
 from django.core.asgi import get_asgi_application
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
+from django.urls import path
 
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 from channels.db import database_sync_to_async
 
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from django.urls import path
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "betting_app.settings")
-
-# ✅ Initialize Django first
+# 4) Get the WSGI/HTTP app
 django_asgi_app = get_asgi_application()
-
 User = get_user_model()
 
 # ---- SimpleJWT WS middleware (with 'sid' check) ----
@@ -42,7 +47,7 @@ class SimpleJWTAuthMiddleware:
 
         # 1) Try ?token=...
         try:
-            qs = parse_qs(scope.get("query_string", b"").decode() or "")
+            qs = parse_qs((scope.get("query_string") or b"").decode())
             token = (qs.get("token") or [None])[0]
         except Exception:
             token = None
@@ -59,9 +64,7 @@ class SimpleJWTAuthMiddleware:
 
         if token:
             try:
-                # Validate signature/expiry
                 validated = self.jwt_auth.get_validated_token(token)
-                # Resolve user AND enforce sid == user.session_key
                 user = await _get_user_if_sid_matches(validated)
             except Exception:
                 user = AnonymousUser()
@@ -86,7 +89,6 @@ def _get_user_if_sid_matches(validated_token):
     except User.DoesNotExist:
         return AnonymousUser()
 
-    # Enforce rotating session key
     if str(user.session_key) != str(sid):
         return AnonymousUser()
 
@@ -97,17 +99,21 @@ def JWTAuthMiddlewareStack(inner):
     return SimpleJWTAuthMiddleware(inner)
 
 
-# Import consumers AFTER Django is set up
-from bets.views import UserProfileConsumer, RoundConsumer  # noqa: E402
+# 5) Import consumers AFTER setup, and from the right module
+from bets.consumers import UserProfileConsumer, RoundConsumer  # <- consumers.py
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket": AllowedHostsOriginValidator(
-        JWTAuthMiddlewareStack(
-            URLRouter([
-                path("ws/profile/", UserProfileConsumer.as_asgi()),
-                path("ws/rounds/", RoundConsumer.as_asgi()),
-            ])
-        )
-    ),
-})
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        "websocket": AllowedHostsOriginValidator(
+            JWTAuthMiddlewareStack(
+                URLRouter(
+                    [
+                        path("ws/profile/", UserProfileConsumer.as_asgi()),
+                        path("ws/rounds/", RoundConsumer.as_asgi()),
+                    ]
+                )
+            )
+        ),
+    }
+)

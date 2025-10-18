@@ -26,7 +26,6 @@ const buildUrl = (path) => {
   return `/bets${p}`; // rely on baseURL="/api" to prefix
 };
 
-
 /* ======================= Card UI ======================= */
 const CardBox = ({ revealed, label }) => {
   const getCardDisplay = (label) => {
@@ -35,19 +34,19 @@ const CardBox = ({ revealed, label }) => {
     }
     const [rank, , suit] = label.split(" ");
     let suitSymbol = "";
-    let suitColor = "#111"; // default dark for black suits
+    let suitColor = "#111";
     let rankColor = "#111";
 
     switch (suit) {
       case "Hearts":
         suitSymbol = "♥";
-        suitColor = "#d32f2f"; // red
-        rankColor = suitColor; // make number red too
+        suitColor = "#d32f2f";
+        rankColor = suitColor;
         break;
       case "Diamonds":
         suitSymbol = "♦";
-        suitColor = "#d32f2f"; // red
-        rankColor = suitColor; // make number red too
+        suitColor = "#d32f2f";
+        rankColor = suitColor;
         break;
       case "Clubs":
         suitSymbol = "♣";
@@ -86,7 +85,7 @@ const CardBox = ({ revealed, label }) => {
           <Typography
             sx={{
               fontWeight: 900,
-              color: rankColor, // ← make rank red for ♥ / ♦
+              color: rankColor,
               fontSize: { xs: "1.5rem", sm: "1.8rem" },
               lineHeight: 1.1,
             }}
@@ -95,7 +94,7 @@ const CardBox = ({ revealed, label }) => {
           </Typography>
           <Typography
             sx={{
-              color: suitColor, // suit icon color
+              color: suitColor,
               fontSize: { xs: "2rem", sm: "2.4rem" },
               lineHeight: 1,
               fontWeight: 800,
@@ -126,7 +125,6 @@ const CardBox = ({ revealed, label }) => {
   );
 };
 
-
 /* ======================= Reveal helpers ======================= */
 const revealMaskForStep = (step, player) => {
   const show = [false, false, false];
@@ -148,25 +146,8 @@ const deriveRevealStep = (secondsLeftReveal) => {
 };
 
 /* ======================= Teen Patti ranking ======================= */
-const RANKS = [
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
-  "9",
-  "10",
-  "J",
-  "Q",
-  "K",
-  "A",
-];
-const RVAL = RANKS.reduce((m, r, i) => {
-  m[r] = i + 2;
-  return m;
-}, {});
+const RANKS = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
+const RVAL = RANKS.reduce((m, r, i) => { m[r] = i + 2; return m; }, {});
 const parseRank = (c) => c?.split(" of ")[0];
 const parseSuit = (c) => c?.split(" of ")[1];
 
@@ -182,10 +163,7 @@ const handRank = (cards) => {
   const vals = cards.map((c) => RVAL[parseRank(c)]);
   const suits = cards.map(parseSuit);
   const sortedVals = [...vals].sort((a, b) => b - a);
-  const counts = vals.reduce((m, v) => {
-    m[v] = (m[v] || 0) + 1;
-    return m;
-  }, {});
+  const counts = vals.reduce((m, v) => { m[v] = (m[v] || 0) + 1; return m; }, {});
   const isFlush = new Set(suits).size === 1;
   const [seq, seqTie] = isSequence(vals);
 
@@ -207,11 +185,9 @@ const compareHands = (a, b) => {
   const ra = handRank(a);
   const rb = handRank(b);
   if (ra[0] !== rb[0]) return ra[0] > rb[0] ? "A" : "B";
-  const tA = ra[1],
-    tB = rb[1];
+  const tA = ra[1], tB = rb[1];
   for (let i = 0; i < Math.max(tA.length, tB.length); i++) {
-    if ((tA[i] || 0) !== (tB[i] || 0))
-      return (tA[i] || 0) > (tB[i] || 0) ? "A" : "B";
+    if ((tA[i] || 0) !== (tB[i] || 0)) return (tA[i] || 0) > (tB[i] || 0) ? "A" : "B";
   }
   return "Tie";
 };
@@ -235,14 +211,8 @@ function TeenPlay({ setExpo }) {
   const [matchBets, setMatchBets] = useState([]);
   const [placing, setPlacing] = useState(false);
 
-  const [toast, setToast] = useState({
-    open: false,
-    msg: "",
-    severity: "success",
-  });
-
-  const showToast = (msg, severity = "success") =>
-    setToast({ open: true, msg, severity });
+  const [toast, setToast] = useState({ open: false, msg: "", severity: "success" });
+  const showToast = (msg, severity = "success") => setToast({ open: true, msg, severity });
 
   const tickRef = useRef(null);
   const roundIdRef = useRef(null);
@@ -250,7 +220,6 @@ function TeenPlay({ setExpo }) {
   const boundaryFetchInFlight = useRef(false);
   const revealFetchInFlight = useRef(false);
   const amountInputRef = useRef(null);
-  
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -259,35 +228,40 @@ function TeenPlay({ setExpo }) {
   /* ---------- helpers to call backend ---------- */
   const getCurrentRound = async () => {
     const url = buildUrl("/current-round/");
-    console.log(
-      "[TeenPlay] GET",
-      url,
-      "baseURL:",
-      api.defaults?.baseURL || "(none)"
-    );
     const res = await api.get(url);
-    console.log("[TeenPlay] /current-round response:", res.data);
     return res;
   };
 
   const getLastTen = async () => {
     const url = buildUrl("/feed/last-ten/");
-    console.log("[TeenPlay] GET", url);
     const res = await api.get(url);
-    console.log("[TeenPlay] /feed/last-ten response:", res.data);
     return res;
   };
 
-  // 🔄 Refresh expo (balance/exposure) from backend profile
+  // 🔄 Refresh expo AND broadcast global wallet event (chips+expo)
   const refreshProfile = async () => {
     try {
       const url = buildUrl("/profile/");
       const { data } = await api.get(url);
-      if (typeof setExpo === "function") {
-        setExpo(parseFloat(data.expo || 0));
-      }
+      const expoNum = parseFloat(data.expo || 0);
+      const balanceNum = parseFloat(data.balance || 0);
+
+      // keep screen's expo in sync (used in this screen)
+      if (typeof setExpo === "function") setExpo(expoNum);
+
+      // 🔔 tell the top bar / any listener to update chips & expo
+      window.dispatchEvent(
+        new CustomEvent("wallet:update", {
+          detail: {
+            balance: balanceNum,
+            expo: expoNum,
+            is_admin: !!data.is_admin,
+            raw: data,
+          },
+        })
+      );
     } catch (e) {
-      console.error("[TeenPlay] failed to refresh expo:", e);
+      console.error("[TeenPlay] failed to refresh profile:", e);
     }
   };
 
@@ -315,6 +289,8 @@ function TeenPlay({ setExpo }) {
         if (!mounted) return;
         applySnapshot(data, true);
         await loadFeed();
+        // also pull initial chips/expo to populate header if needed
+        await refreshProfile();
       } catch (e) {
         console.error("[TeenPlay] initial /current-round/ failed:", e);
         safetyTimer = setTimeout(async () => {
@@ -323,9 +299,10 @@ function TeenPlay({ setExpo }) {
             if (!mounted) return;
             applySnapshot(data, true);
             await loadFeed();
+            await refreshProfile();
           } catch (ee) {
             console.error("[TeenPlay] fallback /current-round/ failed:", ee);
-            startLocalClock(); // still tick; boundary fetch will resync
+            startLocalClock();
           }
         }, 1000);
       }
@@ -390,7 +367,7 @@ function TeenPlay({ setExpo }) {
       setTimeout(loadFeed, 300);
       setTimeout(() => {
         refreshProfile();
-        console.log("[TeenPlay] Expo refreshed after boundary fetch");
+        console.log("[TeenPlay] Expo/Chips refreshed after boundary fetch");
       }, 1000);
     } catch (e) {
       console.error("Boundary fetch failed:", e);
@@ -409,8 +386,6 @@ function TeenPlay({ setExpo }) {
       roundIdRef.current = data.round_id;
       setSelectedPlayer(null);
       setMatchBets([]);
-      // keep UI clean at new round start
-      //if (typeof setExpo === "function") setExpo(0);
     }
 
     const nextPhase = data.phase || "bet";
@@ -421,8 +396,7 @@ function TeenPlay({ setExpo }) {
         ? 10
         : 20;
 
-    // NEW: capture previous phase BEFORE we mutate phase state
-    const prevPhase = phaseRef.current; // <— this stays in sync via the useEffect above
+    const prevPhase = phaseRef.current;
 
     setServerRound({
       round_id: data.round_id,
@@ -436,17 +410,15 @@ function TeenPlay({ setExpo }) {
     setPhase(nextPhase);
     setSecondsLeft(nextSecs);
 
-    // result arrived at end of reveal
     if (nextPhase === "reveal" && data.result) {
       setMatchBets([]);
       showToast(`Round Over — Winner: Player ${data.result}`, "success");
       if (typeof setExpo === "function") setExpo(0);
-      refreshProfile(); // <— pulls expo=0 from backend (new round has new id)
+      refreshProfile();
       setLastResults((prev) => [...prev.slice(-9), data.result]);
       setTimeout(loadFeed, 250);
     }
 
-    // ✅ Unified expo refresh logic to avoid double /profile/ calls
     if (
       (prevPhase === "reveal" && nextPhase === "bet") ||
       (isNewRound && nextPhase === "bet")
@@ -454,7 +426,7 @@ function TeenPlay({ setExpo }) {
       if (typeof setExpo === "function") setExpo(0);
       setTimeout(() => {
         refreshProfile();
-        console.log("[TeenPlay] Expo refreshed after new round start");
+        console.log("[TeenPlay] Expo/Chips refreshed at new round start");
       }, 1000);
     }
 
@@ -512,28 +484,29 @@ function TeenPlay({ setExpo }) {
       const url = buildUrl("/place-bet/");
       const payload = {
         round_id: serverRound.round_id,
-        player: selectedPlayer, // "A" or "B"
+        player: selectedPlayer,
         amount: cleanAmount,
+        // send remaining bet-clock seconds; backend adds +10 reveal
+        bet_seconds_left: phase === "bet" ? Math.max(0, Math.floor(secondsLeft)) : 0,
       };
 
       await api.post(url, payload);
-      window.dispatchEvent(new Event("profile:refresh"));
 
-      // Confirm optimistic row (optional visual diff)
+      // Pull authoritative values immediately so header shows the deduction now
+      await refreshProfile();
+
+      // Confirm optimistic row (optional)
       setMatchBets((prev) =>
         prev.map((r) =>
           r.id === optimistic.id ? { ...r, __optimistic: false } : r
         )
       );
 
-      // Pull authoritative values: chips, balance, expo
-      await refreshProfile();
-
       showToast("✅ Bet placed successfully");
       setAmount("");
       setSelectedPlayer(null);
     } catch (err) {
-      // Roll back optimistic UI & expo if the API failed
+      // Roll back optimistic UI if the API failed
       setMatchBets((prev) => prev.filter((r) => r.id !== optimistic.id));
 
       let msg = "❌ Failed to place bet.";
@@ -561,7 +534,6 @@ function TeenPlay({ setExpo }) {
     () => serverRound.player_a_full || ["", "", ""],
     [serverRound.player_a_full]
   );
-
   const bLabels = useMemo(
     () => serverRound.player_b_full || ["", "", ""],
     [serverRound.player_b_full]
@@ -575,7 +547,6 @@ function TeenPlay({ setExpo }) {
     return null;
   }, [phase, revealStep, aLabels, bLabels]);
 
-  // Prefer server result; fall back to local computation at end of reveal
   const winner = serverRound.result || localWinner;
 
   /* ---------- styles ---------- */
@@ -624,13 +595,7 @@ function TeenPlay({ setExpo }) {
       <FakeVideoScreen />
 
       {/* ===== Game area (separate box below) ===== */}
-      <Box
-        sx={{
-          bgcolor: "black",
-          width: "100%",
-          py: { xs: 1, sm: 1.5 },
-        }}
-      >
+      <Box sx={{ bgcolor: "black", width: "100%", py: { xs: 1, sm: 1.5 } }}>
         <Box
           sx={{
             bgcolor: "#222",
@@ -657,11 +622,7 @@ function TeenPlay({ setExpo }) {
           >
             <Typography
               variant="body1"
-              sx={{
-                fontWeight: 600,
-                fontSize: { xs: "0.75rem", sm: "1rem" },
-                mb: 0.5,
-              }}
+              sx={{ fontWeight: 600, fontSize: { xs: "0.75rem", sm: "1rem" }, mb: 0.5 }}
             >
               Player A
             </Typography>
@@ -676,29 +637,13 @@ function TeenPlay({ setExpo }) {
               }}
             >
               {aMask.map((show, i) => (
-                <CardBox
-                  key={`A-${i}`}
-                  revealed={show}
-                  label={aLabels[i]}
-                  sx={{
-                    flex: "0 1 auto",
-                    width: { xs: "14vw", sm: 45 },
-                    height: { xs: "20vw", sm: 65 },
-                    maxWidth: { xs: 45, sm: 65 },
-                  }}
-                />
+                <CardBox key={`A-${i}`} revealed={show} label={aLabels[i]} />
               ))}
             </Box>
           </Box>
 
           {/* Timer */}
-          <Box
-            sx={{
-              textAlign: "center",
-              flex: "0 0 auto",
-              px: { xs: 0.5, sm: 2 },
-            }}
-          >
+          <Box sx={{ textAlign: "center", flex: "0 0 auto", px: { xs: 0.5, sm: 2 } }}>
             <Typography
               variant="subtitle2"
               sx={{
@@ -733,11 +678,7 @@ function TeenPlay({ setExpo }) {
           >
             <Typography
               variant="body1"
-              sx={{
-                fontWeight: 600,
-                fontSize: { xs: "0.75rem", sm: "1rem" },
-                mb: 0.5,
-              }}
+              sx={{ fontWeight: 600, fontSize: { xs: "0.75rem", sm: "1rem" }, mb: 0.5 }}
             >
               Player B
             </Typography>
@@ -752,17 +693,7 @@ function TeenPlay({ setExpo }) {
               }}
             >
               {bMask.map((show, i) => (
-                <CardBox
-                  key={`B-${i}`}
-                  revealed={show}
-                  label={bLabels[i]}
-                  sx={{
-                    flex: "0 1 auto",
-                    width: { xs: "14vw", sm: 45 },
-                    height: { xs: "20vw", sm: 65 },
-                    maxWidth: { xs: 45, sm: 65 },
-                  }}
-                />
+                <CardBox key={`B-${i}`} revealed={show} label={bLabels[i]} />
               ))}
             </Box>
           </Box>
@@ -772,19 +703,9 @@ function TeenPlay({ setExpo }) {
       {/* PLAYER ODDS */}
       <TableContainer
         component={Paper}
-        sx={{
-          borderRadius: 1,
-          overflow: "hidden",
-          boxShadow: "0 3px 6px rgba(0,0,0,0.15)",
-        }}
+        sx={{ borderRadius: 1, overflow: "hidden", boxShadow: "0 3px 6px rgba(0,0,0,0.15)" }}
       >
-        <Table
-          sx={{
-            tableLayout: "fixed",
-            width: "100%",
-            "& th, & td": { textAlign: "center" },
-          }}
-        >
+        <Table sx={{ tableLayout: "fixed", width: "100%", "& th, & td": { textAlign: "center" } }}>
           <TableHead>
             <TableRow sx={{ bgcolor: "#063b65ff" }}>
               {[
@@ -810,19 +731,10 @@ function TeenPlay({ setExpo }) {
             {["A", "B"].map((player) => (
               <TableRow
                 key={player}
-                sx={{
-                  bgcolor: rowBg(player),
-                  transition: "background-color 0.2s ease",
-                  cursor: "pointer",
-                }}
+                sx={{ bgcolor: rowBg(player), transition: "background-color 0.2s ease", cursor: "pointer" }}
               >
                 <TableCell
-                  sx={{
-                    width: "70%",
-                    fontWeight: 600,
-                    color: rowTextColor(player),
-                    borderRight: "1px solid #fff",
-                  }}
+                  sx={{ width: "70%", fontWeight: 600, color: rowTextColor(player), borderRight: "1px solid #fff" }}
                 >
                   Player {player}
                 </TableCell>
@@ -832,11 +744,7 @@ function TeenPlay({ setExpo }) {
                     onSelectPlayer(player);
                     setTimeout(() => amountInputRef.current?.focus(), 100);
                   }}
-                  sx={{
-                    ...backButtonStyle(selectedPlayer === player),
-                    width: "30%",
-                    "&:hover": { opacity: 0.9 },
-                  }}
+                  sx={{ ...backButtonStyle(selectedPlayer === player), width: "30%", "&:hover": { opacity: 0.9 } }}
                 >
                   <Typography sx={{ lineHeight: 1 }}>0.96</Typography>
                   <Typography sx={{ lineHeight: 1 }}>0</Typography>
@@ -868,8 +776,8 @@ function TeenPlay({ setExpo }) {
               width: 28,
               height: 28,
               borderRadius: "50%",
-              bgcolor: "#1f7a1f", // green
-              color: "#ffeb3b", // yellow letter
+              bgcolor: "#1f7a1f",
+              color: "#ffeb3b",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -884,13 +792,7 @@ function TeenPlay({ setExpo }) {
       </Box>
 
       {/* AMOUNT + PLACE BET */}
-      <Box
-        sx={{
-          bgcolor: "#efebebff",
-          py: 1.5,
-          px: 2,
-        }}
-      >
+      <Box sx={{ bgcolor: "#efebebff", py: 1.5, px: 2 }}>
         <Grid
           container
           alignItems="center"
@@ -905,14 +807,7 @@ function TeenPlay({ setExpo }) {
         >
           {/* Label */}
           <Grid item sx={{ minWidth: 70 }}>
-            <Typography
-              sx={{
-                fontWeight: 600,
-                fontSize: "0.9rem",
-              }}
-            >
-              Amount
-            </Typography>
+            <Typography sx={{ fontWeight: 600, fontSize: "0.9rem" }}>Amount</Typography>
           </Grid>
 
           {/* Input */}
@@ -928,11 +823,7 @@ function TeenPlay({ setExpo }) {
               sx={{
                 bgcolor: "#fff",
                 borderRadius: 1,
-                "& input": {
-                  textAlign: "center",
-                  fontSize: "0.9rem",
-                  p: "4px",
-                },
+                "& input": { textAlign: "center", fontSize: "0.9rem", p: "4px" },
               }}
             />
           </Grid>
@@ -944,9 +835,7 @@ function TeenPlay({ setExpo }) {
               color={phase === "bet" ? "success" : "error"}
               fullWidth
               onClick={handlePlaceBet}
-              disabled={
-                placing || !selectedPlayer || !amount || phase !== "bet"
-              }
+              disabled={placing || !selectedPlayer || !amount || phase !== "bet"}
               sx={{
                 fontWeight: 600,
                 fontSize: "0.75rem",
@@ -955,11 +844,7 @@ function TeenPlay({ setExpo }) {
                 height: 36,
               }}
             >
-              {placing
-                ? "Placing..."
-                : phase === "bet"
-                ? "Place Bet"
-                : "Bet Closed"}
+              {placing ? "Placing..." : phase === "bet" ? "Place Bet" : "Bet Closed"}
             </Button>
           </Grid>
         </Grid>
