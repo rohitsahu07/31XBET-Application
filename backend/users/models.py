@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import uuid  # ← ADD
 from decimal import Decimal
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -76,6 +77,9 @@ class User(AbstractUser, MPTTModel):
         default=Decimal("0.00"),
         validators=[MinValueValidator(Decimal("0.00"))],
     )
+
+    # New: rotating per-login session key (used to invalidate other devices)
+    session_key = models.UUIDField(default=uuid.uuid4, editable=False)  # ← ADD
 
     # Optional hierarchy (downlines / organization tree)
     parent = TreeForeignKey(

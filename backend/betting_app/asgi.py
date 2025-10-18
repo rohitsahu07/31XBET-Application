@@ -1,28 +1,37 @@
 """
 ASGI entrypoint with Django Channels + SimpleJWT auth for WebSockets.
+- Reads JWT from ?token=... or Authorization: Bearer ...
+- Validates the token AND checks 'sid' against User.session_key
+- Exposes /ws/profile/ and /ws/rounds/ routes
 """
 
 import os
 from urllib.parse import parse_qs
-from django.urls import path
 
 from django.core.asgi import get_asgi_application
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "betting_app.settings")
-
-# ✅ Initialize Django settings/apps BEFORE importing auth/models/consumers
-django_asgi_app = get_asgi_application()
-
-# Now it's safe to import Django/Channels things that touch settings/models
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
+
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 from channels.db import database_sync_to_async
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
-# ---- SimpleJWT WS middleware ----
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.urls import path
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "betting_app.settings")
+
+# ✅ Initialize Django first
+django_asgi_app = get_asgi_application()
+
+User = get_user_model()
+
+# ---- SimpleJWT WS middleware (with 'sid' check) ----
 class SimpleJWTAuthMiddleware:
+    """
+    Sets scope['user'] if a valid JWT is provided AND its 'sid' matches the
+    user's current session_key. Otherwise leaves AnonymousUser.
+    """
     def __init__(self, inner):
         self.inner = inner
         self.jwt_auth = JWTAuthentication()
@@ -31,14 +40,14 @@ class SimpleJWTAuthMiddleware:
         user = AnonymousUser()
         token = None
 
-        # ?token=...
+        # 1) Try ?token=...
         try:
-            qs = parse_qs(scope.get("query_string", b"").decode())
-            token = qs.get("token", [None])[0]
+            qs = parse_qs(scope.get("query_string", b"").decode() or "")
+            token = (qs.get("token") or [None])[0]
         except Exception:
             token = None
 
-        # Authorization: Bearer ...
+        # 2) Try Authorization: Bearer ...
         if not token:
             try:
                 headers = dict(scope.get("headers", []))
@@ -50,29 +59,46 @@ class SimpleJWTAuthMiddleware:
 
         if token:
             try:
+                # Validate signature/expiry
                 validated = self.jwt_auth.get_validated_token(token)
-                user = await _get_user(validated)
+                # Resolve user AND enforce sid == user.session_key
+                user = await _get_user_if_sid_matches(validated)
             except Exception:
                 user = AnonymousUser()
 
         scope["user"] = user
         return await self.inner(scope, receive, send)
 
-User = get_user_model()
 
 @database_sync_to_async
-def _get_user(validated_token):
+def _get_user_if_sid_matches(validated_token):
+    """
+    Return the authenticated user only if the token's 'sid' matches the
+    user's current session_key (enforces one-device policy for WS too).
+    """
     uid = validated_token.get("user_id") or validated_token.get("sub")
+    sid = validated_token.get("sid")
+    if not uid or not sid:
+        return AnonymousUser()
+
     try:
-        return User.objects.get(id=uid)
+        user = User.objects.get(id=uid)
     except User.DoesNotExist:
         return AnonymousUser()
+
+    # Enforce rotating session key
+    if str(user.session_key) != str(sid):
+        return AnonymousUser()
+
+    return user
+
 
 def JWTAuthMiddlewareStack(inner):
     return SimpleJWTAuthMiddleware(inner)
 
+
 # Import consumers AFTER Django is set up
-from bets.views import UserProfileConsumer, RoundConsumer
+from bets.views import UserProfileConsumer, RoundConsumer  # noqa: E402
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,

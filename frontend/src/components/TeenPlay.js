@@ -16,38 +16,38 @@ import {
   Snackbar,
   Alert,
 } from "@mui/material";
-import { CircularProgress } from "@mui/material";
 import api from "../services/api";
 import BackToMainMenuButton from "./common_components/BackToMenuBtn";
+import FakeVideoScreen from "./common_components/FakeVideoScreen";
 
-/* -----------------------------------------------------------
-   API root builder (prevents /api/api/... mistakes)
-   - If baseURL ends with '/api' → use '/bets/...'
-   - Else → use '/api/bets/...'
------------------------------------------------------------ */
+// keep baseURL = "/api" on your axios instance
 const buildUrl = (path) => {
-  const base = (api.defaults?.baseURL || "").replace(/\/+$/, "");
-  const root = base.endsWith("/api") ? "/bets" : "/api/bets";
-  return `${root}${path}`;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `/bets${p}`; // rely on baseURL="/api" to prefix
 };
+
 
 /* ======================= Card UI ======================= */
 const CardBox = ({ revealed, label }) => {
   const getCardDisplay = (label) => {
     if (!label || label === "flipped_card") {
-      return { rank: "", suitSymbol: "🂠", color: "#888" };
+      return { rank: "", suitSymbol: "🂠", suitColor: "#888", rankColor: "#888" };
     }
     const [rank, , suit] = label.split(" ");
     let suitSymbol = "";
-    let color = "#000";
+    let suitColor = "#111"; // default dark for black suits
+    let rankColor = "#111";
+
     switch (suit) {
       case "Hearts":
         suitSymbol = "♥";
-        color = "red";
+        suitColor = "#d32f2f"; // red
+        rankColor = suitColor; // make number red too
         break;
       case "Diamonds":
         suitSymbol = "♦";
-        color = "red";
+        suitColor = "#d32f2f"; // red
+        rankColor = suitColor; // make number red too
         break;
       case "Clubs":
         suitSymbol = "♣";
@@ -58,10 +58,10 @@ const CardBox = ({ revealed, label }) => {
       default:
         suitSymbol = "?";
     }
-    return { rank, suitSymbol, color };
+    return { rank, suitSymbol, suitColor, rankColor };
   };
 
-  const { rank, suitSymbol, color } = getCardDisplay(label);
+  const { rank, suitSymbol, suitColor, rankColor } = getCardDisplay(label);
 
   return (
     <Box
@@ -86,7 +86,7 @@ const CardBox = ({ revealed, label }) => {
           <Typography
             sx={{
               fontWeight: 900,
-              color: "#111",
+              color: rankColor, // ← make rank red for ♥ / ♦
               fontSize: { xs: "1.5rem", sm: "1.8rem" },
               lineHeight: 1.1,
             }}
@@ -95,7 +95,7 @@ const CardBox = ({ revealed, label }) => {
           </Typography>
           <Typography
             sx={{
-              color: color,
+              color: suitColor, // suit icon color
               fontSize: { xs: "2rem", sm: "2.4rem" },
               lineHeight: 1,
               fontWeight: 800,
@@ -126,32 +126,6 @@ const CardBox = ({ revealed, label }) => {
   );
 };
 
-const LoadingRing = ({ size = 72, thickness = 5 }) => (
-  <Box sx={{ position: "relative", width: size, height: size }}>
-    {/* Background track */}
-    <CircularProgress
-      variant="determinate"
-      value={100}
-      size={size}
-      thickness={thickness}
-      sx={{ color: "rgba(33, 150, 243, 0.18)" }} // light blue track
-    />
-    {/* Spinning arc */}
-    <CircularProgress
-      variant="indeterminate"
-      disableShrink
-      size={size}
-      thickness={thickness}
-      sx={{
-        color: "#1976d2",
-        position: "absolute",
-        left: 0,
-        top: 0,
-        "& .MuiCircularProgress-circle": { strokeLinecap: "round" },
-      }}
-    />
-  </Box>
-);
 
 /* ======================= Reveal helpers ======================= */
 const revealMaskForStep = (step, player) => {
@@ -276,6 +250,7 @@ function TeenPlay({ setExpo }) {
   const boundaryFetchInFlight = useRef(false);
   const revealFetchInFlight = useRef(false);
   const amountInputRef = useRef(null);
+  
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -646,19 +621,7 @@ function TeenPlay({ setExpo }) {
       </Box>
 
       {/* ===== Screen (black) with centered loader ===== */}
-      <Box
-        sx={{
-          bgcolor: "black",
-          height: { xs: 260, sm: 400 },
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-        }}
-      >
-        <LoadingRing size={50} thickness={2} />
-      </Box>
+      <FakeVideoScreen />
 
       {/* ===== Game area (separate box below) ===== */}
       <Box
