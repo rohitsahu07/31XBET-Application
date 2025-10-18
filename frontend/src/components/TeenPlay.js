@@ -20,16 +20,12 @@ import api from "../services/api";
 import BackToMainMenuButton from "./common_components/BackToMenuBtn";
 import FakeVideoScreen from "./common_components/FakeVideoScreen";
 
-/* -----------------------------------------------------------
-   API root builder (prevents /api/api/... mistakes)
-   - If baseURL ends with '/api' → use '/bets/...'
-   - Else → use '/api/bets/...'
------------------------------------------------------------ */
+// keep baseURL = "/api" on your axios instance
 const buildUrl = (path) => {
-  const base = (api.defaults?.baseURL || "").replace(/\/+$/, "");
-  const root = base.endsWith("/api") ? "/bets" : "/api/bets";
-  return `${root}${path}`;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `/bets${p}`; // rely on baseURL="/api" to prefix
 };
+
 
 /* ======================= Card UI ======================= */
 const CardBox = ({ revealed, label }) => {

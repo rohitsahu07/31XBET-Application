@@ -325,14 +325,8 @@ def broadcast_user_profile(user_id: int):
 
 
 class UserProfileConsumer(AsyncJsonWebsocketConsumer):
-    """
-    Per-user WebSocket:
-      - Joins group user_<id>
-      - On connect, sends an initial snapshot
-      - Receives future 'profile_update' events via group_send
-    """
     async def connect(self):
-        user = self.scope.get("user")  # set by SimpleJWT middleware in asgi.py
+        user = self.scope.get("user")
         if not user or not user.is_authenticated:
             await self.close(code=4401)
             return
@@ -341,8 +335,9 @@ class UserProfileConsumer(AsyncJsonWebsocketConsumer):
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
+        # DEBUG:
+        await self.send_json({"type": "debug", "msg": f"joined {self.group_name}"})
 
-        # Initial snapshot
         data = await database_sync_to_async(_compute_profile_snapshot)(self.user_id)
         await self.send_json({"type": "profile_update", **data})
 
@@ -351,11 +346,15 @@ class UserProfileConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive_json(self, content, **kwargs):
-        # Optional: implement ping/pong if needed
         pass
 
     async def profile_update(self, event):
         await self.send_json({"type": "profile_update", **event["data"]})
+
+    async def force_logout(self, event):
+        await self.send_json({"type": "force_logout", **(event.get("data") or {})})
+        await self.close(code=4403)
+
 
 
 class RoundConsumer(AsyncJsonWebsocketConsumer):

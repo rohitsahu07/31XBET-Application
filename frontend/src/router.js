@@ -44,6 +44,8 @@ export const router = createBrowserRouter(
         { path: "/user-management", element: withSuspense(<UserManagementPage />) },
         { path: "/password", element: withSuspense(<ChangePasswordPage />) },
         { path: "/profile", element: withSuspense(<ProfilePage />) },
+        // Catch-all: any unknown URL goes to /login
+        { path: "*", element: withSuspense(<LoginPage />) },
       ],
     },
   ],
