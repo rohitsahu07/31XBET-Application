@@ -1,6 +1,15 @@
 import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Typography, Box, Container, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
+import {
+  Button,
+  Typography,
+  Box,
+  Container,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
 import SectionHeader from "./common_components/PageTitle";
 
 const Rules = () => {
@@ -21,9 +30,7 @@ const Rules = () => {
     englishRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleClose = () => {
-    setOpen(false);
-  };
+  const handleClose = () => setOpen(false);
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
@@ -32,6 +39,7 @@ const Rules = () => {
           MAIN MENU
         </Button>
       </Box>
+
       <Box display="flex" justifyContent="center" mb={4}>
         <Button className="rule_border_btn" variant="outlined" onClick={scrollToHindi} sx={{ mr: 2 }}>
           Hindi
@@ -40,10 +48,12 @@ const Rules = () => {
           English
         </Button>
       </Box>
+
       <Typography variant="body1" align="center" mb={4}>
         कृपया नियमों को समझने के लिए यहां कुछ मिनट दें, और अपने अनुसार समझ लें |
       </Typography>
 
+      {/* ----------------------- Hindi ----------------------- */}
       <div ref={hindiRef}>
         <Typography variant="h6">NOTE-</Typography>
         <Typography variant="body2">
@@ -709,6 +719,7 @@ const Rules = () => {
         </Typography>
       </div>
 
+      {/* ----------------------- English ----------------------- */}
       <div ref={englishRef}>
         <Typography variant="h6" mt={4}>
           bookmaker
@@ -1012,8 +1023,8 @@ const Rules = () => {
           next batsman.
         </Typography>
         <Typography variant="body2">
-          * Advance partnership is valid in case both players are different or
-          same.
+          * Advance partnership is valid in case both players are different
+          or same.
         </Typography>
         <Typography variant="body2">
           * Both team advance partnerships are valid in particular match.
@@ -1079,8 +1090,8 @@ const Rules = () => {
           next batsman.
         </Typography>
         <Typography variant="body2">
-          * Advance partnership is valid in case both players are different or
-          same.
+          * Advance partnership is valid in case both players are different
+          or same.
         </Typography>
         <Typography variant="body2">
           * Both team advance partnerships are valid in particular match.
@@ -1131,8 +1142,8 @@ const Rules = () => {
           otherwise that fancy will be deleted.
         </Typography>
         <Typography variant="body2">
-          * 1st inning 6 over boundaries runs any team run like wide ,no-ball
-          ,leg-byes ,byes and over throw runs are not counted this fancy.
+          * 1st inning 6 over boundaries runs any team run like wide, no-ball,
+          leg-byes, byes and over throw runs are not counted this fancy.
         </Typography>
         <Typography variant="body2">
           * How many balls face any batsman meaning that any batsman how many
@@ -1361,15 +1372,16 @@ const Rules = () => {
         </Typography>
       </div>
 
+      {/* ----------------------- Dialog (fixed nesting) ----------------------- */}
       <Dialog
         open={open}
         onClose={handleClose}
         maxWidth="sm"
         fullWidth
         sx={{
-          '& .MuiPaper-root': {
-            backgroundColor: '#fff',
-            color: '#000',
+          "& .MuiPaper-root": {
+            backgroundColor: "#fff",
+            color: "#000",
           },
         }}
       >
@@ -1378,16 +1390,29 @@ const Rules = () => {
             <SectionHeader title="Welcome to JSM97 Games" />
           </Box>
         </DialogTitle>
+
         <DialogContent>
-          <Typography variant="body2">
-            <Typography variant="body1" sx={{fontWeight: 600}}>प्रिय ग्राहक</Typography>
-            आपसे अनुरोध है हमारी कोई डुप्लीकेट साइट नही है हमारी आधिकारिक साइट ssplay.win से लॉगिन करें। लॉगिन करने से पहले साइट का नाम जरूर देख लें। आपके समर्थन के लिए धन्यवाद। टीम ssplay.win
-          </Typography>
-          <Typography variant="body2" mt={2}>
-            <Typography variant="body1" sx={{fontWeight: 600}}>Dear Clients,</Typography>
-            We don't have any duplicate site , You are requested to login with our official site ssplay.win only. Please check the site name before you login. Thanks for your support. Team ssplay.win
-          </Typography>
+          <Box>
+            <Typography variant="body1" sx={{ fontWeight: 600 }} gutterBottom component="div">
+              प्रिय ग्राहक
+            </Typography>
+            <Typography variant="body2" component="div">
+              आपसे अनुरोध है हमारी कोई डुप्लीकेट साइट नही है हमारी आधिकारिक साइट ssplay.win से लॉगिन करें।
+              लॉगिन करने से पहले साइट का नाम जरूर देख लें। आपके समर्थन के लिए धन्यवाद। टीम ssplay.win
+            </Typography>
+          </Box>
+
+          <Box mt={2}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }} gutterBottom component="div">
+              Dear Clients,
+            </Typography>
+            <Typography variant="body2" component="div">
+              We don't have any duplicate site, You are requested to login with our official site ssplay.win only.
+              Please check the site name before you login. Thanks for your support. Team ssplay.win
+            </Typography>
+          </Box>
         </DialogContent>
+
         <DialogActions>
           <Button onClick={handleClose} variant="contained" className="main-menu-btn">
             Close

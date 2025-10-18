@@ -18,6 +18,9 @@ ALLOWED_HOSTS = [
 ]
 
 INSTALLED_APPS = [
+    #daphne
+    "daphne",
+
     # Django
     "django.contrib.admin",
     "django.contrib.auth",

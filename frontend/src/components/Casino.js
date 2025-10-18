@@ -8,12 +8,12 @@ function Casino() {
   const navigate = useNavigate();
 
   const games = [
-    { src: "frontend_assets/Casino_images/casino_img1.jpg", title: "Andar Bahar" },
+    { src: "frontend_assets/Casino_images/casino_img1.jpg", title: "Andar Bahar", onClick: () => navigate("/coming-soon")  },
     { src: "frontend_assets/Casino_images/casino_img2.jpg", title: "3 Patti", onClick: () => navigate("/teen-play") },
-    { src: "frontend_assets/Casino_images/casino_img3.jpg", title: "Dragon Tiger" },
-    { src: "frontend_assets/Casino_images/casino_img4.jpg", title: "Teen Patti 1 Day" },
-    { src: "frontend_assets/Casino_images/casino_img5.jpg", title: "Lucky 7" },
-    { src: "frontend_assets/Casino_images/casino_img6.png", title: "Aviator" },
+    { src: "frontend_assets/Casino_images/casino_img3.jpg", title: "Dragon Tiger", onClick: () => navigate("/coming-soon")  },
+    { src: "frontend_assets/Casino_images/casino_img4.jpg", title: "Teen Patti 1 Day", onClick: () => navigate("/coming-soon")  },
+    { src: "frontend_assets/Casino_images/casino_img5.jpg", title: "Lucky 7", onClick: () => navigate("/coming-soon")  },
+    { src: "frontend_assets/Casino_images/casino_img6.png", title: "Aviator", onClick: () => navigate("/coming-soon")  },
   ];
 
   return (

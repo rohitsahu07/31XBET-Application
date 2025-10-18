@@ -28,6 +28,9 @@ from .engine import (
     mask_cards_for_step,
 )
 
+MIN_STAKE = Decimal("100")
+MAX_STAKE = Decimal("10000")
+
 # ─────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────
@@ -185,6 +188,12 @@ def place_bet(request):
             sec, phase, _ = calc_cycle(now)
             if phase != "bet":
                 return Response({"error": "Bet window closed"}, status=400)
+
+            # ── New: stake bounds ─────────────────────────
+            if amount < MIN_STAKE:
+                return Response({"error": "Bet should be greater than 100"}, status=400)
+            if amount > MAX_STAKE:
+                return Response({"error": "Bet should be less than 10000"}, status=400)
 
             # pre-check funds
             if user.balance < amount:
