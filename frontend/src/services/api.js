@@ -1,3 +1,4 @@
+// src/services/api.js
 import axios from "axios";
 
 /* token helpers */
@@ -20,7 +21,7 @@ export const clearTokens = () => {
 
 const api = axios.create({ baseURL: "/api" });
 
-/* attach Authorization automatically + normalize urls */
+/* attach Authorization automatically + normalize urls + cache-bust GET */
 api.interceptors.request.use((config) => {
   const token = getAccess();
   if (token) {
@@ -28,17 +29,21 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // 🔧 normalize path to avoid "/api/api/..." 404s
-  // - leave absolute URLs alone
+  // normalize URL
   let url = config.url || "";
   const isAbsolute = /^https?:\/\//i.test(url) || /^wss?:\/\//i.test(url);
   if (!isAbsolute) {
     if (!url.startsWith("/")) url = `/${url}`;
-    // if caller mistakenly uses "/api/..." strip the leading "/api"
     if (url.startsWith("/api/")) url = url.replace(/^\/api\//, "/");
-    // collapse accidental double slashes
     url = url.replace(/\/{2,}/g, "/");
     config.url = url;
+  }
+
+  // add cb cache-buster to GETs
+  if ((config.method || "get").toLowerCase() === "get") {
+    const ts = Date.now().toString();
+    const sep = (config.params && Object.keys(config.params).length) || (config.url.includes("?")) ? "&" : "?";
+    config.url = `${config.url}${sep}cb=${ts}`;
   }
 
   return config;

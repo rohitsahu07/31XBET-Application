@@ -166,3 +166,13 @@ class Bet(models.Model):
 
     def __str__(self) -> str:
         return f"Bet#{self.pk} {self.user} {self.round.round_id} {self.selection} {self.stake} [{self.status}]"
+
+class Counter(models.Model):
+    """
+    Generic integer counter. We’ll use name='round_id' and store a BigInt value.
+    """
+    name = models.CharField(max_length=64, unique=True)
+    value = models.BigIntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.name}={self.value}"

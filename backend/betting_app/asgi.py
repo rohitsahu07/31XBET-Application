@@ -4,6 +4,7 @@ ASGI entrypoint with Django Channels + SimpleJWT auth for WebSockets.
 - Reads JWT from ?token=... or Authorization: Bearer ...
 - Validates the token AND checks 'sid' against User.session_key
 - Exposes /ws/profile/ and /ws/rounds/ routes
+- Starts the background round engine thread on boot
 """
 import os
 from urllib.parse import parse_qs
@@ -29,6 +30,14 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # 4) Get the WSGI/HTTP app
 django_asgi_app = get_asgi_application()
+
+# 4.1) Start the background engine thread (safe after django.setup())
+try:
+    from bets.engine import start_engine
+    start_engine()
+except Exception as e:
+    print("[asgi] WARNING: engine failed to start:", e)
+
 User = get_user_model()
 
 # ---- SimpleJWT WS middleware (with 'sid' check) ----
