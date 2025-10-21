@@ -20,6 +20,8 @@ from users.models import User
 
 # ✅ IMPORTANT: import the module, NOT the globals
 from . import engine
+from .machine import maybe_decide_biased, apply_biased_to_engine
+
 
 MIN_STAKE = Decimal("100")
 MAX_STAKE = Decimal("10000")
@@ -133,7 +135,7 @@ def current_round(request):
             result = engine.CURRENT_ROUND["official_result"] if step == 6 else None
 
         payload = {
-            "round_id": engine.CURRENT_ROUND["round_id"],
+            "round_id": str(engine.CURRENT_ROUND["round_id"]),  # normalize to string
             "player_a_cards": a_cards,
             "player_b_cards": b_cards,
             "result": result,
@@ -227,57 +229,22 @@ def _settle_bet_after_delay(
 # ─────────────────────────────────────────────
 # Place Bet — deduct now, credit after bet_left + 10s
 # ─────────────────────────────────────────────
-@api_view(["GET"])
-def current_round(request):
-    now = int(time.time())
-    with engine._LOCK:
-        if engine.CURRENT_ROUND is None:
-            engine.CURRENT_ROUND = engine.new_round_state(now)
-
-        sec, phase, seconds_left = engine.calc_cycle(now)
-        step = engine.reveal_step(sec)
-
-        a_full = engine.CURRENT_ROUND["player_a_full"]
-        b_full = engine.CURRENT_ROUND["player_b_full"]
-
-        if phase == "bet":
-            a_cards, b_cards = [engine.FLIPPED] * 3, [engine.FLIPPED] * 3
-            result = None
-        else:
-            a_cards = engine.mask_cards_for_step(a_full, step, "A")
-            b_cards = engine.mask_cards_for_step(b_full, step, "B")
-            result = engine.CURRENT_ROUND["official_result"] if step == 6 else None
-
-        payload = {
-            "round_id": str(engine.CURRENT_ROUND["round_id"]),  # ⬅️ always string
-            "player_a_cards": a_cards,
-            "player_b_cards": b_cards,
-            "result": result,
-            "phase": phase,
-            "seconds_left": seconds_left,
-            "reveal_step": step,
-            "player_a_full": a_full,
-            "player_b_full": b_full,
-            "server_time": now,
-        }
-
-    # (logging + headers unchanged)
-    resp = Response(payload, status=status.HTTP_200_OK)
-    resp["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    resp["Pragma"] = "no-cache"
-    return resp
-
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def place_bet(request):
+    """
+    Deduct stake immediately, schedule settlement later.
+    At bet-time, run the biased machine to compute per-bet cards and
+    (optionally) promote them to public reveal while still in bet phase.
+    """
     try:
         round_id = request.data.get("round_id")
-        player = request.data.get("player")
+        player = request.data.get("player")  # "A" or "B"
         amount_raw = request.data.get("amount")
         client_bet_left_raw = request.data.get("bet_seconds_left")
         user: User = request.user
 
+        # ---- amount parsing/validation ----
         try:
             amount = Decimal(str(amount_raw))
         except (InvalidOperation, TypeError):
@@ -286,16 +253,20 @@ def place_bet(request):
         if not round_id or player not in ("A", "B"):
             return Response({"error": "Missing fields"}, status=400)
 
+        # ---- engine state / phase check ----
         now = int(time.time())
         with engine._LOCK:
             if engine.CURRENT_ROUND is None:
                 engine.CURRENT_ROUND = engine.new_round_state(now)
+
             if str(engine.CURRENT_ROUND["round_id"]) != str(round_id):
                 return Response({"error": "Round mismatch"}, status=400)
+
             sec, phase, server_seconds_left = engine.calc_cycle(now)
             if phase != "bet":
                 return Response({"error": "Bet window closed"}, status=400)
 
+        # ---- business constraints ----
         if amount < MIN_STAKE:
             return Response({"error": "Bet should be greater than 100"}, status=400)
         if amount > MAX_STAKE:
@@ -303,6 +274,7 @@ def place_bet(request):
         if user.balance < amount:
             return Response({"error": "Insufficient balance"}, status=400)
 
+        # ---- compute delay to settle (client hint capped by server clock) ----
         def _to_int(v, default=None):
             try:
                 return int(v)
@@ -315,16 +287,34 @@ def place_bet(request):
         else:
             bet_left = min(max(client_left, 0), server_seconds_left)
 
-        delay_seconds = max(int(bet_left) + 10, 1)  # reveal is 10s
+        delay_seconds = max(int(bet_left) + 10, 1)  # 10s reveal phase
 
+        # ---- ensure Round row exists (cards/timing copied from engine) ----
         round_row = _ensure_round_from_engine(engine.CURRENT_ROUND)
 
-        print(
-            f"[deduct:start] t={timezone.now().strftime('%Y-%m-%d %H:%M:%S')}  "
-            f"user={user.username}({user.id}) amount={amount} round={round_id} sel={player} "
-            f"bet_left={bet_left}s reveal=10s delay={delay_seconds}s"
+        # ---- one-shot biased machine decision (does NOT touch engine directly) ----
+        biased = maybe_decide_biased(
+            user=user,
+            stake=amount,
+            selection=player,       # "A" or "B"
+            round_id=str(round_id),
         )
 
+        # ---- OPTIONAL: promote biased result to public reveal during bet phase ----
+        if biased.use_biased:
+            with engine._LOCK:
+                now2 = int(time.time())
+                _sec2, phase2, _left2 = engine.calc_cycle(now2)
+                same_round = (
+                    engine.CURRENT_ROUND
+                    and str(engine.CURRENT_ROUND["round_id"]) == str(round_id)
+                )
+                if same_round and phase2 == "bet" and not engine.CURRENT_ROUND.get("official_result"):
+                    apply_biased_to_engine(engine.CURRENT_ROUND, biased)
+                    # persist to DB if winner/cards not recorded yet
+                    _ = _ensure_round_from_engine(engine.CURRENT_ROUND)
+
+        # ---- deduct & create Bet ----
         with transaction.atomic():
             User.objects.filter(id=user.id).update(balance=F("balance") - amount)
             user.refresh_from_db(fields=["balance"])
@@ -336,32 +326,42 @@ def place_bet(request):
                 status="PLACED",
             )
 
+        # ---- broadcast updated profile (balance/expo) ----
         print(
             f"[deduct:done ] t={timezone.now().strftime('%Y-%m-%d %H:%M:%S')}  "
             f"user={user.username}({user.id}) new_balance={user.balance}"
         )
-
         broadcast_user_profile(user.id)
 
+        # ---- schedule settlement (kept SAME as your current logic) ----
         _settle_bet_after_delay(
             bet_id=bet.id,
             user_id=user.id,
             round_db_id=round_row.id,
             round_public_id=round_row.round_id,
-            selection=player,
+            selection=player,              # NOTE: unchanged
             delay_seconds=delay_seconds,
         )
 
-        return Response(
-            {
-                "message": f"Bet placed. Stake deducted now; win will be credited after {delay_seconds}s.",
-                "round_id": round_id,
-                "player": player,
-                "bet_amount": str(amount),
-                "delay_seconds": delay_seconds,
-            },
-            status=200,
-        )
+        # ---- response payload (includes biased cards if present) ----
+        payload = {
+            "message": f"Bet placed. Stake deducted now; win will be credited after {delay_seconds}s.",
+            "round_id": round_id,
+            "player": player,
+            "bet_amount": str(amount),
+            "delay_seconds": delay_seconds,
+            "resolver": "biased" if biased.use_biased else "official",
+        }
+        if biased.use_biased:
+            payload.update({
+                "forced_winner": biased.winner,            # "A"/"B" chosen by machine
+                "player_a_full": biased.player_a_full,     # fabricated A cards
+                "player_b_full": biased.player_b_full,     # fabricated B cards
+                "rule_id": biased.rule_id,                 # which rule triggered
+                "note": biased.note,                       # human-readable summary
+            })
+
+        return Response(payload, status=200)
 
     except Exception as e:
         print(f"[place-bet] ERROR: {e}")
