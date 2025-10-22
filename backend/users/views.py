@@ -39,26 +39,18 @@ def generate_random_password():
 
 
 def _opening_balance_description(admin_user: User, new_user: User) -> str:
-    # Similar to your screenshot text
-    return (
-        f"Opening Balance By {admin_user.id} {admin_user.username} "
-        f"To {new_user.id} Rm ({new_user.chip_code}) "
-        f"[{admin_user.id} {admin_user.username}]"
-    )
+    # New format: "Opening Balance By (admin name) To (user name)"
+    return f"Opening Balance By {admin_user.username} To {new_user.username}"
 
 
 def _deposit_description(admin_user: User, target_user: User, amount: Decimal) -> str:
-    return (
-        f"Chips credited to {target_user.id} Rm ({target_user.chip_code}) by "
-        f"{admin_user.id} {admin_user.username} (₹{amount})"
-    )
+    # New format: "Chips credited to (Username) by (admin name) (₹amount)"
+    return f"Chips credited to {target_user.username} by {admin_user.username} (₹{amount})"
 
 
 def _withdraw_description(admin_user: User, target_user: User, amount: Decimal) -> str:
-    return (
-        f"Chips debited from {target_user.id} Rm ({target_user.chip_code}) by "
-        f"{admin_user.id} {admin_user.username} (₹{amount})"
-    )
+    # New format: "Chips debited from (Username) by (admin name) (₹amount)"
+    return f"Chips debited from {target_user.username} by {admin_user.username} (₹{amount})"
 
 
 # ─────────────────────────────────────────────────────────────
