@@ -24,23 +24,41 @@ const Statement = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadedAdminUsers, setLoadedAdminUsers] = useState(false);
 
-  // ✅ Memoized fetch function to prevent re-creation
-  const fetchStatement = useCallback(async (userId = null) => {
-    try {
-      let url = "/api/ledger/statement/";
-      if (isAdmin && userId) url += `?user_id=${userId}`;
-      const token = sessionStorage.getItem("access_token");
-      const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setRows(res.data || []);
-    } catch (err) {
-      console.error("Error fetching statement:", err);
-      setRows([]);
-    }
-  }, [isAdmin]); // depends only on isAdmin
+  // ✅ Format helper
+  const fmt = (v) =>
+    v === null || v === undefined || v === "" ? "0.00" : Number(v).toFixed(2);
 
-  // ✅ useEffect now includes fetchStatement
+  // ✅ Memoized fetch (admin can pass user_id)
+  const fetchStatement = useCallback(
+    async (userId = null) => {
+      try {
+        let url = "/api/ledger/statement/";
+        if (isAdmin && userId) url += `?user_id=${userId}`;
+        const token = sessionStorage.getItem("access_token");
+
+        const res = await axios.get(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = Array.isArray(res.data) ? res.data : [];
+
+        // Sort by numeric epoch if provided; fall back safely.
+        const getTs = (r) =>
+          typeof r.sort_ts === "number"
+            ? r.sort_ts
+            : new Date(r.iso || r.date || 0).getTime();
+
+        data.sort((a, b) => getTs(b) - getTs(a));
+        setRows(data);
+      } catch (err) {
+        console.error("Error fetching statement:", err);
+        setRows([]);
+      }
+    },
+    [isAdmin]
+  );
+
+  // ✅ Init: load users & role, then fetch for self if not admin
   useEffect(() => {
     const init = async () => {
       try {
@@ -63,7 +81,7 @@ const Statement = () => {
       }
     };
     init();
-  }, [fetchStatement]); // ✅ ESLint happy now
+  }, [fetchStatement]);
 
   const handleUserChange = (e) => {
     const userId = e.target.value;
@@ -71,9 +89,6 @@ const Statement = () => {
     if (userId) fetchStatement(userId);
     else setRows([]);
   };
-
-  const fmt = (v) =>
-    v === null || v === undefined || v === "" ? "0.00" : Number(v).toFixed(2);
 
   return (
     <Box sx={{ backgroundColor: "#e8e8e8", minHeight: "100vh", p: 2 }}>

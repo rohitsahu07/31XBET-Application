@@ -1,4 +1,3 @@
-// src/components/TeenPlay.js
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box, Grid, Typography, Button, TextField,
@@ -54,9 +53,9 @@ const CardBox = ({ label }) => {
   );
 };
 
-/* Ranking helpers (unchanged) */
+/* Ranking helpers */
 const RANKS = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
-const RVAL = RANKS.reduce((m, r, i) => (m[r] = i + 2, m), {});
+const RVAL = RANKS.reduce((m, r, i) => { m[r] = i + 2; return m; }, {});
 const parseRank = (c) => c?.split(" of ")[0];
 const parseSuit = (c) => c?.split(" of ")[1];
 const isSequence = (values) => {
@@ -70,7 +69,7 @@ const handRank = (cards) => {
   const vals = cards.map((c) => RVAL[parseRank(c)]);
   const suits = cards.map(parseSuit);
   const sortedVals = [...vals].sort((a, b) => b - a);
-  const counts = vals.reduce((m, v) => (m[v] = (m[v] || 0) + 1, m), {});
+  const counts = vals.reduce((m, v) => { m[v] = (m[v] || 0) + 1; return m; }, {});
   const isFlush = new Set(suits).size === 1;
   const [seq, seqTie] = isSequence(vals);
   if (Object.keys(counts).length === 1) return [6, [sortedVals[0]]];
@@ -169,12 +168,16 @@ function TeenPlay({ setExpo }) {
       player_b_full: data?.player_b_full || null,
     });
 
+    // When round transitions to new bet phase, clear exposure immediately
     if ((prevPhase === "reveal" && data?.phase === "bet") || isNewRound) {
+      if (typeof setExpo === "function") setExpo(0);
       setTimeout(loadFeed, 150);
       setTimeout(refreshProfile, 400);
     }
+    // Also clear when server declares a result (defensive)
     if (data?.result) {
       showToast(`Round Over — Winner: Player ${data.result}`, "success");
+      if (typeof setExpo === "function") setExpo(0);
       setTimeout(refreshProfile, 300);
     }
   };
@@ -190,7 +193,7 @@ function TeenPlay({ setExpo }) {
       } finally { inflightRef.current = false; }
     };
     poll(); // initial snapshot
-    pollRef.current = setInterval(poll, 1000); // 1Hz sync with 30s machine
+    pollRef.current = setInterval(poll, 1000); // 1Hz sync
     return () => { mounted = false; if (pollRef.current) clearInterval(pollRef.current); pollRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -198,6 +201,7 @@ function TeenPlay({ setExpo }) {
   const onSelectPlayer = (player) => {
     if (serverRound.phase !== "bet") return showToast("Bet window is closed. Wait for next round.", "info");
     setSelectedPlayer(player);
+    setTimeout(() => amountInputRef.current?.focus(), 100);
   };
 
   const handlePlaceBet = async () => {
@@ -208,9 +212,20 @@ function TeenPlay({ setExpo }) {
     if (placing) return;
 
     setPlacing(true);
+
+    // Optimistic expo bump (rolled back on failure)
+    if (typeof setExpo === "function") {
+      setExpo((prev) => (Number(prev || 0) + cleanAmount));
+    }
+    const rollbackExpo = () => {
+      if (typeof setExpo === "function") {
+        setExpo((prev) => Math.max(0, Number(prev || 0) - cleanAmount));
+      }
+    };
+
     const optimistic = {
       id: Date.now(),
-      round_id: String(serverRound.round_id), // keep as string
+      round_id: String(serverRound.round_id),
       team: selectedPlayer === "A" ? "Player A" : "Player B",
       rate: "0.96",
       amount: cleanAmount.toString(),
@@ -221,7 +236,7 @@ function TeenPlay({ setExpo }) {
 
     try {
       await api.post(buildUrl("/place-bet/"), {
-        round_id: String(serverRound.round_id), // ← send as string
+        round_id: String(serverRound.round_id),
         player: selectedPlayer,
         amount: cleanAmount,
         bet_seconds_left:
@@ -232,6 +247,7 @@ function TeenPlay({ setExpo }) {
       showToast("✅ Bet placed successfully");
       setAmount(""); setSelectedPlayer(null);
     } catch (err) {
+      rollbackExpo();
       setMatchBets((prev) => prev.filter((r) => r.id !== optimistic.id));
       showToast(err?.response?.data?.error ? `❌ ${err.response.data.error}` : "❌ Failed to place bet.", "error");
     } finally { setPlacing(false); }
@@ -318,7 +334,7 @@ function TeenPlay({ setExpo }) {
                   Player {player}
                 </TableCell>
                 <TableCell
-                  onClick={() => { onSelectPlayer(player); setTimeout(() => amountInputRef.current?.focus(), 100); }}
+                  onClick={() => onSelectPlayer(player)}
                   sx={{ ...backButtonStyle(selectedPlayer === player), width: "30%", "&:hover": { opacity: 0.9 } }}
                 >
                   <Typography sx={{ lineHeight: 1 }}>0.96</Typography>
@@ -437,7 +453,7 @@ function TeenPlay({ setExpo }) {
         <Alert
           onClose={() => setToast((t) => ({ ...t, open: false }))}
           severity={toast.severity}
-          variant="filled"d
+          variant="filled"
           sx={{ width: "100%" }}
         >
           {toast.msg}

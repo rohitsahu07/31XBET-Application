@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "../services/api";
 import {
   Box,
@@ -19,7 +19,7 @@ import BackToMainMenuButton from "./common_components/BackToMenuBtn";
 import SectionHeader from "./common_components/PageTitle";
 
 const Ledger = () => {
-  const [rows, setRows] = useState([]);          // bets-only endpoint payload
+  const [rows, setRows] = useState([]); // bets-only endpoint payload
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -62,6 +62,14 @@ const Ledger = () => {
         : `/api/ledger/my-ledger/`;
       const res = await axios.get(url);
       const data = Array.isArray(res.data) ? res.data : [];
+
+      // Sort by numeric epoch if provided by backend; fall back safely.
+      const getTs = (r) =>
+        typeof r.sort_ts === "number"
+          ? r.sort_ts
+          : new Date(r.round_time || r.iso || r.date || 0).getTime();
+
+      data.sort((a, b) => getTs(b) - getTs(a));
       setRows(data);
     } catch (err) {
       console.error("❌ Error fetching MY LEDGER:", err);
@@ -81,20 +89,21 @@ const Ledger = () => {
   // Transform to MY LEDGER table rows with Hisaab
   // ────────────────────────────────
   const ledgerRows = useMemo(() => {
-    // Rows are already bets-only and sorted desc by backend; recompute to be safe
-    const sorted = [...(rows || [])].sort((a, b) => {
-      const ta = new Date(a.round_time || a.date).getTime();
-      const tb = new Date(b.round_time || b.date).getTime();
-      return tb - ta;
-    });
+    const getTs = (r) =>
+      typeof r.sort_ts === "number"
+        ? r.sort_ts
+        : new Date(r.round_time || r.iso || r.date || 0).getTime();
+
+    // Ensure newest → oldest for display
+    const sorted = [...(rows || [])].sort((a, b) => getTs(b) - getTs(a));
 
     // Compute cumulative Hisaab (oldest→newest), then flip back
     const oldest = [...sorted].reverse();
     let running = 0;
     const withCalc = oldest.map((r) => {
       const credit = parseFloat(r.credit || 0) || 0;
-      const debit  = parseFloat(r.debit  || 0) || 0;
-      running += (credit - debit);
+      const debit = parseFloat(r.debit || 0) || 0;
+      running += credit - debit;
       return {
         ...r,
         _won: credit.toFixed(2),
@@ -102,6 +111,8 @@ const Ledger = () => {
         _hisaab: running.toFixed(2),
       };
     });
+
+    // Back to newest → oldest for the UI
     return withCalc.reverse().map((r) => {
       const desc = `${r.description || "Teen Patti T20"} (${r.date || ""})`;
       return { ...r, __desc: desc, __wonBy: r.won_by || "" };
@@ -109,7 +120,7 @@ const Ledger = () => {
   }, [rows]);
 
   const totals = useMemo(() => {
-    const won  = ledgerRows.reduce((s, r) => s + parseFloat(r._won  || 0), 0);
+    const won = ledgerRows.reduce((s, r) => s + parseFloat(r._won || 0), 0);
     const lost = ledgerRows.reduce((s, r) => s + parseFloat(r._lost || 0), 0);
     const net = (won - lost).toFixed(2);
     return { won: won.toFixed(2), lost: lost.toFixed(2), net };
@@ -130,9 +141,7 @@ const Ledger = () => {
             displayEmpty
             onChange={handleUserChange}
             renderValue={(value) =>
-              value
-                ? users.find((u) => u.id === value)?.username
-                : "Select User"
+              value ? users.find((u) => u.id === value)?.username : "Select User"
             }
           >
             <MenuItem disabled value="">
@@ -229,9 +238,7 @@ const Ledger = () => {
           variant="body1"
           sx={{ mt: 4, textAlign: "center", color: "#ccc" }}
         >
-          {isAdmin
-            ? "Please select a user to view their ledger."
-            : "No data found."}
+          {isAdmin ? "Please select a user to view their ledger." : "No data found."}
         </Typography>
       )}
 

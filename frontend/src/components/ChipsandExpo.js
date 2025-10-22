@@ -80,16 +80,16 @@ const formatINR = (val) => {
 };
 
 /**
- * Slim Chips & Expo bar (no emojis)
+ * Slim Chips & Expo bar
  * - If DISABLE_PROFILE is true, it uses mock values and NEVER calls /api/bets/profile/
  * - If DISABLE_PROFILE is false, it opens a WebSocket to /ws/profile/?token=...
  * - Admins display ∞
+ * - Uses `expo` prop if provided; otherwise falls back to internal `expoState` (WS/Events)
  */
-const ChipsAndExpo = ({ expo = 0 }) => {
+const ChipsAndExpo = ({ expo = null }) => {
   const [balance, setBalance] = useState("0.00");
   const [isAdmin, setIsAdmin] = useState(false);
-  // If you want expo from WS instead of prop, uncomment next line and use setExpoState in onmessage
-  // const [expoState, setExpoState] = useState("0.00");
+  const [expoState, setExpoState] = useState(0); // fallback when parent doesn't pass expo
 
   const applyMock = () => {
     if (MOCK_IS_ADMIN) {
@@ -103,7 +103,6 @@ const ChipsAndExpo = ({ expo = 0 }) => {
 
   const fetchProfile = async () => {
     try {
-      // ✅ Correct relative path (baseURL="/api")
       const { data } = await api.get("/bets/profile/");
       if (data?.is_admin) {
         setIsAdmin(true);
@@ -111,8 +110,8 @@ const ChipsAndExpo = ({ expo = 0 }) => {
       } else {
         setIsAdmin(false);
         setBalance(data?.balance ?? data?.chips ?? "0.00");
-        // if (data?.expo !== undefined) setExpoState(data.expo);
       }
+      if (data?.expo !== undefined) setExpoState(Number(data.expo) || 0);
     } catch (err) {
       console.error("Balance fetch failed:", err);
       // keep last known value
@@ -142,17 +141,14 @@ const ChipsAndExpo = ({ expo = 0 }) => {
       ws.onmessage = (evt) => {
         try {
           const msg = JSON.parse(evt.data);
-          // All server pushes include a type now
           if (msg.type === "profile_update") {
             if (typeof msg.is_admin === "boolean") setIsAdmin(msg.is_admin);
             else setIsAdmin(false);
 
             if (msg.balance !== undefined) setBalance(msg.balance);
-            // If you want expo from WS instead of prop:
-            // if (msg.expo !== undefined) setExpoState(msg.expo);
+            if (msg.expo !== undefined) setExpoState(Number(msg.expo) || 0);
           } else if (msg.type === "force_logout") {
-            // Optional: handle server-initiated logout UX
-            // e.g., show toast then redirect
+            // Optional: toast + redirect
           }
         } catch {
           // ignore malformed messages
@@ -177,11 +173,21 @@ const ChipsAndExpo = ({ expo = 0 }) => {
 
     connect();
 
+    // Also accept local app-wide wallet updates (TeenPlay dispatches these)
+    const onWalletUpdate = (e) => {
+      if (!e?.detail) return;
+      if (e.detail.expo !== undefined) setExpoState(Number(e.detail.expo) || 0);
+      if (e.detail.balance !== undefined) setBalance(String(e.detail.balance));
+      if (typeof e.detail.is_admin === "boolean") setIsAdmin(!!e.detail.is_admin);
+    };
+    window.addEventListener("wallet:update", onWalletUpdate);
+
     return () => {
       closed = true;
       try {
         ws && ws.close();
       } catch {}
+      window.removeEventListener("wallet:update", onWalletUpdate);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -247,7 +253,7 @@ const ChipsAndExpo = ({ expo = 0 }) => {
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          ₹{isAdmin ? "∞" : formatINR(expo /* or expoState if you wire it */)}
+          ₹{isAdmin ? "∞" : formatINR(expo ?? expoState)}
         </span>
       </Typography>
     </Box>
