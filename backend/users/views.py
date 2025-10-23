@@ -81,6 +81,10 @@ def login_view(request):
     if not user:
         return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # ⬇️ Block login if deactivated
+    if not user.is_active:
+        return Response({"error": "Account deactivated. Contact admin."}, status=status.HTTP_403_FORBIDDEN)
+
     # (1) Rotate session_key -> all old tokens/devices become stale
     user.session_key = uuid.uuid4()
     user.save(update_fields=["session_key"])
@@ -287,3 +291,44 @@ class UserViewSet(viewsets.ModelViewSet):
         user.username = new_name
         user.save()
         return Response({"message": "Username updated successfully", "username": user.username})
+
+    # ─────────────────────────────────────────────
+    # Activate / Deactivate / Toggle (Admin only)
+    # ─────────────────────────────────────────────
+    @action(detail=True, methods=["post"])
+    def toggle_active(self, request, pk=None):
+        if not request.user.is_superuser:
+            return Response({"error": "Only admin can change activation state"}, status=403)
+        user = self.get_object()
+        if user.is_superuser:
+            return Response({"error": "Cannot change status of a superuser."}, status=400)
+        user.is_active = not user.is_active
+        user.save(update_fields=["is_active"])
+        return Response({
+            "message": f"User {'activated' if user.is_active else 'deactivated'} successfully.",
+            "is_active": user.is_active
+        })
+
+    @action(detail=True, methods=["post"])
+    def activate(self, request, pk=None):
+        if not request.user.is_superuser:
+            return Response({"error": "Only admin can change activation state"}, status=403)
+        user = self.get_object()
+        if user.is_superuser:
+            return Response({"error": "Cannot change status of a superuser."}, status=400)
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=["is_active"])
+        return Response({"message": "User activated.", "is_active": True})
+
+    @action(detail=True, methods=["post"])
+    def deactivate(self, request, pk=None):
+        if not request.user.is_superuser:
+            return Response({"error": "Only admin can change activation state"}, status=403)
+        user = self.get_object()
+        if user.is_superuser:
+            return Response({"error": "Cannot change status of a superuser."}, status=400)
+        if user.is_active:
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+        return Response({"message": "User deactivated.", "is_active": False})

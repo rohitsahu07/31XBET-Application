@@ -16,8 +16,9 @@ class UserSerializer(serializers.ModelSerializer):
             "is_superuser",
             "is_self",
             "balance",
+            "is_active",   # ⬅️ expose activation status
         ]
-        read_only_fields = ["id", "is_superuser", "balance"]
+        read_only_fields = ["id", "is_superuser", "balance", "is_active"]
 
     def get_is_self(self, obj):
         request = self.context.get("request", None)

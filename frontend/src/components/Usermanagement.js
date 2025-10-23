@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+// frontend/src/components/Usermanagement.js
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -13,24 +14,79 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Stack,
+  Tooltip,
 } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import SwapVertIcon from "@mui/icons-material/SwapVert";
 import Swal from "sweetalert2";
 import api from "../services/api";
 import SectionHeader from "./common_components/PageTitle";
+
+// ---------- tiny, reusable status pill ----------
+function StatusPill({ active }) {
+  const dotColor = active ? "#22c55e" : "#64748b"; // green / slate
+  const label = active ? "Active" : "Inactive";
+  const bg = active ? "rgba(34,197,94,0.12)" : "rgba(148,163,184,0.12)";
+  const border = active ? "rgba(34,197,94,0.45)" : "rgba(148,163,184,0.45)";
+  const shadow = active
+    ? "0 0 0 3px rgba(34,197,94,0.10) inset"
+    : "0 0 0 3px rgba(148,163,184,0.10) inset";
+
+  return (
+    <Box
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        px: 1.25,
+        py: 0.5,
+        gap: 1,
+        borderRadius: "999px",
+        fontWeight: 700,
+        fontSize: 12,
+        letterSpacing: 0.3,
+        textTransform: "uppercase",
+        bgcolor: bg,
+        border: "1px solid",
+        borderColor: border,
+        boxShadow: shadow,
+        userSelect: "none",
+      }}
+    >
+      <Box
+        sx={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          bgcolor: dotColor,
+          boxShadow: `0 0 0 3px ${active ? "rgba(34,197,94,.25)" : "rgba(100,116,139,.25)"}`,
+        }}
+      />
+      {label}
+    </Box>
+  );
+}
 
 function Usermanagement() {
   const [users, setUsers] = useState([]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all"); // all | active | inactive
+  const [activeFirst, setActiveFirst] = useState(true); // sort by status
   const navigate = useNavigate();
   const open = Boolean(anchorEl);
 
-  // Fetch All Users
+  const fmtINR = (n) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(Number(n || 0));
+
   const fetchUsers = async () => {
     try {
       const res = await api.get("/api/users/");
-      setUsers(res.data);
+      setUsers(res.data || []);
     } catch (err) {
       console.error("Error fetching users:", err);
     }
@@ -40,7 +96,6 @@ function Usermanagement() {
     fetchUsers();
   }, []);
 
-  // Menu Handlers
   const handleMenuOpen = (event, user) => {
     setAnchorEl(event.currentTarget);
     setSelectedUser(user);
@@ -50,7 +105,6 @@ function Usermanagement() {
     setSelectedUser(null);
   };
 
-  // Create New User
   const handleAddUser = async () => {
     const { value: formValues } = await Swal.fire({
       title: "Create New User",
@@ -108,7 +162,6 @@ function Usermanagement() {
     }
   };
 
-  // Balance Ops
   const handleDeposit = async () => {
     const { value: amount } = await Swal.fire({
       title: "Deposit Coins",
@@ -123,7 +176,7 @@ function Usermanagement() {
     if (!amount) return;
     try {
       await api.post(`/api/users/${selectedUser.id}/deposit/`, { amount });
-      Swal.fire("Success", `₹${amount} added successfully`, "success");
+      Swal.fire("Success", `${fmtINR(amount)} added successfully`, "success");
       fetchUsers();
     } catch (err) {
       Swal.fire("Error", "Failed to deposit coins", "error");
@@ -204,7 +257,32 @@ function Usermanagement() {
     handleMenuClose();
   };
 
-  // Deep-links
+  const handleToggleActive = async () => {
+    if (!selectedUser) return;
+    const nextState = !selectedUser.is_active;
+    const actionTitle = nextState ? "Activate ID" : "Deactivate ID";
+
+    const confirm = await Swal.fire({
+      title: actionTitle,
+      text: `Are you sure you want to ${nextState ? "activate" : "deactivate"} "${selectedUser.username}"?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: nextState ? "Activate" : "Deactivate",
+      background: "#1E1E1E",
+      color: "#fff",
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      const res = await api.post(`/api/users/${selectedUser.id}/toggle_active/`);
+      Swal.fire("Done", res.data.message, "success");
+      fetchUsers();
+    } catch (err) {
+      Swal.fire("Error", err.response?.data?.error || "Action failed", "error");
+    }
+    handleMenuClose();
+  };
+
   const handleStatement = () => {
     if (!selectedUser) return;
     navigate(`/statement?user_id=${selectedUser.id}`);
@@ -217,29 +295,80 @@ function Usermanagement() {
     handleMenuClose();
   };
 
-  // UI
+  // counts for filter labels
+  const counts = useMemo(() => {
+    const total = users.length || 0;
+    const active = users.filter((u) => u.is_active).length || 0;
+    return { total, active, inactive: total - active };
+  }, [users]);
+
+  // filtered + sorted view
+  const visibleUsers = useMemo(() => {
+    let data = Array.isArray(users) ? [...users] : [];
+    if (statusFilter === "active") data = data.filter((u) => u.is_active);
+    if (statusFilter === "inactive") data = data.filter((u) => !u.is_active);
+    data.sort((a, b) => {
+      const av = a.is_active ? 1 : 0;
+      const bv = b.is_active ? 1 : 0;
+      return activeFirst ? bv - av : av - bv;
+    });
+    return data;
+  }, [users, statusFilter, activeFirst]);
+
   return (
     <Box sx={{ backgroundColor: "#e8e8e8", minHeight: "100vh", p: 2 }}>
       <SectionHeader title="👥 User Management" />
 
-      <Button
-        variant="contained"
-        sx={{
-          backgroundColor: "#16a34a",
-          "&:hover": { backgroundColor: "#15803d" },
-          mb: 2,
-          mt: 2,
-        }}
-        onClick={handleAddUser}
-      >
-        + Add User
-      </Button>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2, mb: 1, flexWrap: "wrap" }}>
+        <Button
+          variant="contained"
+          sx={{ backgroundColor: "#16a34a", "&:hover": { backgroundColor: "#15803d" } }}
+          onClick={handleAddUser}
+        >
+          + Add User
+        </Button>
+
+        {/* Filters + Sort */}
+        <Stack direction="row" spacing={1} sx={{ ml: { xs: 0, md: 2 } }}>
+          <Button
+            size="small"
+            variant={statusFilter === "all" ? "contained" : "outlined"}
+            onClick={() => setStatusFilter("all")}
+          >
+            All ({counts.total})
+          </Button>
+          <Button
+            size="small"
+            variant={statusFilter === "active" ? "contained" : "outlined"}
+            onClick={() => setStatusFilter("active")}
+          >
+            Active ({counts.active})
+          </Button>
+          <Button
+            size="small"
+            variant={statusFilter === "inactive" ? "contained" : "outlined"}
+            onClick={() => setStatusFilter("inactive")}
+          >
+            Inactive ({counts.inactive})
+          </Button>
+
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<SwapVertIcon />}
+            onClick={() => setActiveFirst((v) => !v)}
+            title={activeFirst ? "Sort: Active → Inactive" : "Sort: Inactive → Active"}
+          >
+            {activeFirst ? "Active → Inactive" : "Inactive → Active"}
+          </Button>
+        </Stack>
+      </Stack>
 
       <TableContainer
         component={Paper}
         sx={{
-          borderRadius: "6px",
-          boxShadow: "0 3px 8px rgba(0,0,0,0.1)",
+          borderRadius: "8px",
+          boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
           overflowX: "auto",
           mt: 2,
         }}
@@ -249,32 +378,60 @@ function Usermanagement() {
             <TableRow sx={{ background: "linear-gradient(to right, #00332b, #004d40)" }}>
               <TableCell sx={{ color: "white", fontWeight: "bold" }}>USERNAME</TableCell>
               <TableCell sx={{ color: "white", fontWeight: "bold" }}>BALANCE</TableCell>
-              <TableCell sx={{ color: "white", fontWeight: "bold" }}>ACTIONS</TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }} align="center">
+                STATUS
+              </TableCell>
+              <TableCell sx={{ color: "white", fontWeight: "bold" }} align="center">
+                ACTIONS
+              </TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
-            {users.length === 0 ? (
+            {visibleUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
                   No users found.
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((user, i) => (
+              visibleUsers.map((user, i) => (
                 <TableRow
                   key={user.id}
                   hover
                   sx={{
-                    backgroundColor: i % 2 === 0 ? "#f9f9f9" : "#ffffff",
-                    "&:hover": { backgroundColor: "#e6f7f3" },
+                    backgroundColor: i % 2 === 0 ? "#fbfbfb" : "#ffffff",
+                    "&:hover": { backgroundColor: "#f0fffa" },
+                    // subtle left accent based on status
+                    position: "relative",
+                    "&::before": {
+                      content: '""',
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 4,
+                      bgcolor: user.is_active ? "rgba(34,197,94,0.9)" : "rgba(100,116,139,0.7)",
+                      borderTopLeftRadius: 6,
+                      borderBottomLeftRadius: 6,
+                    },
                   }}
                 >
-                  <TableCell sx={{ color: "#004d80", fontWeight: 500 }}>
-                    {user.username}
-                  </TableCell>
-                  <TableCell sx={{ color: "#000" }}>
-                    ₹{parseFloat(user.balance).toFixed(2)}
+                  <TableCell sx={{ color: "#004d80", fontWeight: 600 }}>{user.username}</TableCell>
+                  <TableCell sx={{ color: "#000" }}>{fmtINR(user.balance)}</TableCell>
+                  <TableCell align="center">
+                    <Tooltip
+                      title={
+                        user.is_active
+                          ? "Active – can log in and play"
+                          : "Inactive – login is blocked"
+                      }
+                      arrow
+                    >
+                      <span>
+                        <StatusPill active={user.is_active} />
+                      </span>
+                    </Tooltip>
                   </TableCell>
                   <TableCell align="center">
                     <IconButton color="inherit" onClick={(e) => handleMenuOpen(e, user)}>
@@ -299,7 +456,7 @@ function Usermanagement() {
             backgroundColor: "#1E1E1E",
             color: "#fff",
             borderRadius: 1,
-            minWidth: 180,
+            minWidth: 200,
             paddingY: 0.5,
           },
         }}
@@ -310,6 +467,9 @@ function Usermanagement() {
         <MenuItem onClick={handleStatement}>View Statement</MenuItem>
         <MenuItem onClick={handleLedger}>View Ledger</MenuItem>
         <MenuItem onClick={handleEditProfile}>Edit Profile</MenuItem>
+        <MenuItem onClick={async () => { await handleToggleActive(); }}>
+          {selectedUser?.is_active ? "Deactivate ID" : "Activate ID"}
+        </MenuItem>
       </Menu>
     </Box>
   );
