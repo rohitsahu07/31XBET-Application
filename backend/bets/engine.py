@@ -191,7 +191,7 @@ def new_round_state(now: int) -> dict:
     a, b = _deal_two_hands()
     winner = _compare_teen_patti(a, b)
     rid = next_round_id()  # ⬅️ sequential id from DB
-    print(f"[engine] NEW ROUND rid={rid} | A=[{pretty(a)}] | B=[{pretty(b)}] | winner={winner}")
+    # print(f"[engine] NEW ROUND rid={rid} | A=[{pretty(a)}] | B=[{pretty(b)}] | winner={winner}")
     return {
         "round_id": rid,
         "start_time": now,
@@ -253,7 +253,7 @@ def settle_round(round_row: Round):
                 prev_bal = user.balance
                 user.balance = (prev_bal + bet.payout).quantize(Decimal("0.01"))
                 user.save(update_fields=["balance"])
-                print(f"[settle] ✅ {user.username} WON stake={bet.stake} payout={bet.payout}  {prev_bal} -> {user.balance}")
+                # print(f"[settle] ✅ {user.username} WON stake={bet.stake} payout={bet.payout}  {prev_bal} -> {user.balance}")
             else:
                 print(f"[settle] ❌ {bet.user.username if bet.user_id else bet.id} LOST stake={bet.stake}")
     for uid in affected_users:
@@ -282,16 +282,16 @@ def _engine_loop():
                         "official_result": CURRENT_ROUND["official_result"],
                         "skip_engine_feed": CURRENT_ROUND.get("skip_engine_feed", False),
                     }
-                    print(f"[engine] ROLLOVER from rid={finished['round_id']} -> creating next round...")
+                    # print(f"[engine] ROLLOVER from rid={finished['round_id']} -> creating next round...")
                     CURRENT_ROUND = new_round_state(now)
         if finished:
             rid = str(finished["round_id"])
             try:
-                print(f"[engine] FINALIZE rid={rid} | official_result={finished['official_result']}")
+                # print(f"[engine] FINALIZE rid={rid} | official_result={finished['official_result']}")
                 round_row = _finalize_round(finished, end_time_ts=now)
                 if not finished.get("skip_engine_feed", False):
                     settle_round(round_row)
-                print(f"[engine] SETTLED rid={rid}")
+                # print(f"[engine] SETTLED rid={rid}")
             except Exception as e:
                 print(f"[engine] finalize/settle failed for round {rid}: {e}")
 

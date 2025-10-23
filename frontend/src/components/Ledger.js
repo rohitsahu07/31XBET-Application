@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "../services/api";
 import {
   Box,
@@ -24,32 +25,8 @@ const Ledger = () => {
   const [selectedUser, setSelectedUser] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
 
-  // ────────────────────────────────
-  // Fetch users on mount
-  // ────────────────────────────────
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await axios.get("/api/users/");
-        const allUsers = res.data || [];
-        const current = allUsers.find((u) => u.is_self);
-        const admin = current?.is_superuser || false;
-        setIsAdmin(admin);
-        setUsers(allUsers.filter((u) => !u.is_superuser));
-
-        if (!admin && current?.id) {
-          await fetchLedger(current.id, false);
-        }
-      } catch (err) {
-        console.error("Error fetching users:", err);
-      }
-    })();
-  }, []);
-
-  // ────────────────────────────────
-  // Fetch MY LEDGER (bets only)
-  // ────────────────────────────────
   const fetchLedger = async (userId, adminMode = isAdmin) => {
     if (adminMode && !userId) {
       setRows([]);
@@ -57,13 +34,14 @@ const Ledger = () => {
     }
     setLoading(true);
     try {
+      const token = sessionStorage.getItem("access_token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const url = adminMode
-        ? `/api/ledger/my-ledger/?user_id=${userId}`
+        ? `/api/ledger/my-ledger/?user_id=${encodeURIComponent(userId)}`
         : `/api/ledger/my-ledger/`;
-      const res = await axios.get(url);
+      const res = await axios.get(url, { headers });
       const data = Array.isArray(res.data) ? res.data : [];
 
-      // Sort by numeric epoch if provided by backend; fall back safely.
       const getTs = (r) =>
         typeof r.sort_ts === "number"
           ? r.sort_ts
@@ -79,25 +57,55 @@ const Ledger = () => {
     }
   };
 
+  useEffect(() => {
+    (async () => {
+      try {
+        // 1) Determine role from /me
+        const meRes = await axios.get("/api/users/me/");
+        const me = meRes.data || {};
+        const admin = !!(me.is_superuser || me.is_staff);
+        setIsAdmin(admin);
+
+        // 2) If admin, populate dropdown list
+        if (admin) {
+          const listRes = await axios.get("/api/users/");
+          const list = Array.isArray(listRes.data) ? listRes.data : [];
+          setUsers(list.filter((u) => !u.is_superuser));
+        }
+
+        // 3) Decide initial fetch
+        const qUserId = searchParams.get("user_id");
+        if (admin) {
+          if (qUserId) {
+            setSelectedUser(qUserId);
+            await fetchLedger(qUserId, true); // deep-link
+          } else {
+            setRows([]); // wait for selection
+          }
+        } else if (me?.id) {
+          await fetchLedger(me.id, false); // self
+        }
+      } catch (err) {
+        console.error("Error fetching users/me for ledger:", err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const handleUserChange = (e) => {
     const userId = e.target.value;
     setSelectedUser(userId);
     fetchLedger(userId, true);
   };
 
-  // ────────────────────────────────
-  // Transform to MY LEDGER table rows with Hisaab
-  // ────────────────────────────────
   const ledgerRows = useMemo(() => {
     const getTs = (r) =>
       typeof r.sort_ts === "number"
         ? r.sort_ts
         : new Date(r.round_time || r.iso || r.date || 0).getTime();
 
-    // Ensure newest → oldest for display
     const sorted = [...(rows || [])].sort((a, b) => getTs(b) - getTs(a));
 
-    // Compute cumulative Hisaab (oldest→newest), then flip back
     const oldest = [...sorted].reverse();
     let running = 0;
     const withCalc = oldest.map((r) => {
@@ -112,7 +120,6 @@ const Ledger = () => {
       };
     });
 
-    // Back to newest → oldest for the UI
     return withCalc.reverse().map((r) => {
       const desc = `${r.description || "Teen Patti T20"} (${r.date || ""})`;
       return { ...r, __desc: desc, __wonBy: r.won_by || "" };
@@ -126,9 +133,6 @@ const Ledger = () => {
     return { won: won.toFixed(2), lost: lost.toFixed(2), net };
   }, [ledgerRows]);
 
-  // ────────────────────────────────
-  // Render
-  // ────────────────────────────────
   return (
     <Box sx={{ p: 3 }}>
       <SectionHeader title="MY LEDGER" />

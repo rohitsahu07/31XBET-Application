@@ -1,4 +1,3 @@
-# backend/ledger/views.py
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -12,7 +11,6 @@ from .models import Transaction
 from .serializers import TransactionSerializer
 from bets.models import Bet
 from users.models import User
-
 
 # ─────────────────────────────────────────────
 # Helpers
@@ -58,10 +56,44 @@ def _tx_description(t: Transaction) -> str:
         return f"Chips deposit by {t.to_user.username}"
     return t.type.capitalize()
 
+def _resolve_target_id(request_user: User, q_user_id: str | None) -> int:
+    """
+    Decide which user's data should be returned.
+
+    Rules:
+      - Superuser: can view any user_id.
+      - Staff: allow any user_id (adjust/remove this if you want stricter).
+      - Tree admin/agent: allow user_id only if it's in their descendants (include_self).
+      - Else: fallback to self.
+    """
+    if not q_user_id:
+        return request_user.id
+
+    try:
+        target_id = int(q_user_id)
+    except (TypeError, ValueError):
+        return request_user.id
+
+    if getattr(request_user, "is_superuser", False):
+        return target_id
+
+    if getattr(request_user, "is_staff", False):
+        return target_id
+
+    if hasattr(request_user, "get_descendants"):
+        try:
+            allowed_ids = set(
+                request_user.get_descendants(include_self=True).values_list("id", flat=True)
+            )
+            if target_id in allowed_ids:
+                return target_id
+        except Exception:
+            pass
+
+    return request_user.id
 
 # ─────────────────────────────────────────────
-# Ledger ViewSet (Raw transactions) — unchanged, still available via router
-# e.g. /api/ledger/ledger/
+# Ledger ViewSet (Raw transactions)
 # ─────────────────────────────────────────────
 class LedgerViewSet(viewsets.ReadOnlyModelViewSet):
     """Raw ledger entries from Transaction table for user and descendants"""
@@ -83,12 +115,10 @@ class LedgerViewSet(viewsets.ReadOnlyModelViewSet):
             .order_by("-timestamp")
         )
 
-
 # ─────────────────────────────────────────────
-# Account Statement (COMBINED): transfers + bets
+# Account Statement (transfers + bets)
 #   URL: /api/ledger/statement/
-#   Admin can pass ?user_id=<id>
-#   Response: array; (date, description, credit, debit, balance, ...)
+#   Privileged viewers can pass ?user_id=<id>
 # ─────────────────────────────────────────────
 class StatementView(APIView):
     permission_classes = [IsAuthenticated]
@@ -96,14 +126,13 @@ class StatementView(APIView):
     def get(self, request):
         user = request.user
         q_user_id = request.query_params.get("user_id")
+        target_id = _resolve_target_id(user, q_user_id)
 
-        # Determine target user
-        target_id = int(q_user_id) if (user.is_superuser and q_user_id) else user.id
-
-        # ───────── Transfers (money movements) ─────────
+        # Transfers (to_user only to match your semantics)
         transfers = Transaction.objects.filter(to_user_id=target_id).select_related(
             "from_user", "to_user"
         )
+
         transfer_rows = []
         for t in transfers:
             local_dt = _to_local(t.timestamp)
@@ -120,12 +149,11 @@ class StatementView(APIView):
                 "source": "transfer",
             })
 
-        # ───────── Bets (for statement view) ─────────
+        # Bets (for statement)
         bets = Bet.objects.filter(user_id=target_id).select_related("round")
 
         bet_rows = []
         for b in bets:
-            # result → credit/debit
             if b.status == "WON":
                 result = "WON"
                 net = b.net if b.net is not None else (b.stake * Decimal("0.96"))
@@ -136,7 +164,6 @@ class StatementView(APIView):
                 credit = Decimal("0.00")
                 debit = b.stake or Decimal("0.00")
 
-            # time (unified)
             dt_local = _bet_display_dt(b)
             pretty, iso, sort_ts = _fmt_dt(dt_local)
 
@@ -144,9 +171,9 @@ class StatementView(APIView):
             round_id = getattr(r, "round_id", None) or "-"
 
             bet_rows.append({
-                "date": pretty,                 # pretty string for table
-                "iso": iso,                     # ISO for debugging/possible UI
-                "sort_ts": sort_ts,             # reliable sort key
+                "date": pretty,
+                "iso": iso,
+                "sort_ts": sort_ts,
                 "description": f"{result} - Teen Patti T20 ({round_id})",
                 "prev_balance": None,
                 "credit": f"{credit:.2f}",
@@ -155,11 +182,11 @@ class StatementView(APIView):
                 "source": "bet",
             })
 
-        # ───────── Merge & sort (desc by sort_ts) ─────────
+        # Merge & sort (desc)
         rows = list(chain(transfer_rows, bet_rows))
         rows.sort(key=lambda r: (r.get("sort_ts") or 0), reverse=True)
 
-        # ───────── Compute running balance (oldest→newest) ─────────
+        # Running balance (oldest→newest)
         balance = Decimal("0.00")
         for r in reversed(rows):
             prev = balance
@@ -171,60 +198,53 @@ class StatementView(APIView):
 
         return Response(rows, status=status.HTTP_200_OK)
 
-
 # ─────────────────────────────────────────────
-# MY LEDGER (BETS ONLY): profit/loss table
+# MY LEDGER (bets-only P/L)
 #   URL: /api/ledger/my-ledger/
-#   Admin can pass ?user_id=<id>
-#   Response: array (bet rows only) + extra fields for UI
+#   Privileged viewers can pass ?user_id=<id>
 # ─────────────────────────────────────────────
 class BetLedgerView(APIView):
-    permission_classes = [IsAuthenticated]
+  permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        user = request.user
-        q_user_id = request.query_params.get("user_id")
+  def get(self, request):
+      user = request.user
+      q_user_id = request.query_params.get("user_id")
+      target_id = _resolve_target_id(user, q_user_id)
 
-        target_id = int(q_user_id) if (user.is_superuser and q_user_id) else user.id
+      bets = Bet.objects.filter(user_id=target_id).select_related("round")
 
-        bets = Bet.objects.filter(user_id=target_id).select_related("round")
+      rows = []
+      for b in bets:
+          if b.status == "WON":
+              net = b.net if b.net is not None else (b.stake * Decimal("0.96"))
+              credit = net
+              debit = Decimal("0.00")
+          else:
+              credit = Decimal("0.00")
+              debit = b.stake or Decimal("0.00")
 
-        rows = []
-        for b in bets:
-            # credit/debit by result
-            if b.status == "WON":
-                net = b.net if b.net is not None else (b.stake * Decimal("0.96"))
-                credit = net
-                debit = Decimal("0.00")
-            else:
-                credit = Decimal("0.00")
-                debit = b.stake or Decimal("0.00")
+          dt_local = _bet_display_dt(b)
+          pretty, iso, sort_ts = _fmt_dt(dt_local)
 
-            # unified time for ledger
-            dt_local = _bet_display_dt(b)
-            pretty, iso, sort_ts = _fmt_dt(dt_local)
+          r = getattr(b, "round", None)
+          round_id = getattr(r, "round_id", None) or "-"
+          winner = getattr(r, "winner", None)
+          won_by = f"Player {winner}" if winner in ("A", "B") else None
 
-            r = getattr(b, "round", None)
-            round_id = getattr(r, "round_id", None) or "-"
-            winner = getattr(r, "winner", None)
-            won_by = f"Player {winner}" if winner in ("A", "B") else None
+          rows.append({
+              "date": pretty,
+              "iso": iso,
+              "sort_ts": sort_ts,
+              "description": f"Teen Patti T20 ({round_id})",
+              "prev_balance": None,
+              "credit": f"{credit:.2f}",
+              "debit": f"{debit:.2f}",
+              "balance": None,
+              "source": "bet",
+              "round_id": round_id,
+              "won_by": won_by,
+              "round_time": iso,
+          })
 
-            rows.append({
-                "date": pretty,                 # pretty for display
-                "iso": iso,                     # ISO string
-                "sort_ts": sort_ts,             # epoch ms for sorting
-                "description": f"Teen Patti T20 ({round_id})",
-                "prev_balance": None,
-                "credit": f"{credit:.2f}",
-                "debit": f"{debit:.2f}",
-                "balance": None,
-                "source": "bet",
-                "round_id": round_id,           # extra
-                "won_by": won_by,               # extra ("Player A/B")
-                "round_time": iso,              # keep field name you used; ISO value
-            })
-
-        # sort by sort_ts desc (settlement time first)
-        rows.sort(key=lambda r: (r.get("sort_ts") or 0), reverse=True)
-
-        return Response(rows, status=status.HTTP_200_OK)
+      rows.sort(key=lambda r: (r.get("sort_ts") or 0), reverse=True)
+      return Response(rows, status=status.HTTP_200_OK)

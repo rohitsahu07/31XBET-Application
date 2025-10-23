@@ -26,9 +26,7 @@ function Usermanagement() {
   const navigate = useNavigate();
   const open = Boolean(anchorEl);
 
-  /** ───────────────────────────────
-   * 📦 Fetch All Users
-   * ─────────────────────────────── */
+  // Fetch All Users
   const fetchUsers = async () => {
     try {
       const res = await api.get("/api/users/");
@@ -42,9 +40,7 @@ function Usermanagement() {
     fetchUsers();
   }, []);
 
-  /** ───────────────────────────────
-   * ⚙️ Menu Handlers
-   * ─────────────────────────────── */
+  // Menu Handlers
   const handleMenuOpen = (event, user) => {
     setAnchorEl(event.currentTarget);
     setSelectedUser(user);
@@ -54,9 +50,7 @@ function Usermanagement() {
     setSelectedUser(null);
   };
 
-  /** ───────────────────────────────
-   * ➕ Create New User
-   * ─────────────────────────────── */
+  // Create New User
   const handleAddUser = async () => {
     const { value: formValues } = await Swal.fire({
       title: "Create New User",
@@ -114,9 +108,7 @@ function Usermanagement() {
     }
   };
 
-  /** ───────────────────────────────
-   * 💰 Deposit / Withdraw / Reset / Edit
-   * ─────────────────────────────── */
+  // Balance Ops
   const handleDeposit = async () => {
     const { value: amount } = await Swal.fire({
       title: "Deposit Coins",
@@ -212,14 +204,20 @@ function Usermanagement() {
     handleMenuClose();
   };
 
+  // Deep-links
   const handleStatement = () => {
+    if (!selectedUser) return;
+    navigate(`/statement?user_id=${selectedUser.id}`);
     handleMenuClose();
-    navigate("/statement");
   };
 
-  /** ───────────────────────────────
-   * 🎨 UI Rendering
-   * ─────────────────────────────── */
+  const handleLedger = () => {
+    if (!selectedUser) return;
+    navigate(`/ledger?user_id=${selectedUser.id}`);
+    handleMenuClose();
+  };
+
+  // UI
   return (
     <Box sx={{ backgroundColor: "#e8e8e8", minHeight: "100vh", p: 2 }}>
       <SectionHeader title="👥 User Management" />
@@ -301,7 +299,7 @@ function Usermanagement() {
             backgroundColor: "#1E1E1E",
             color: "#fff",
             borderRadius: 1,
-            minWidth: 160,
+            minWidth: 180,
             paddingY: 0.5,
           },
         }}
@@ -309,7 +307,8 @@ function Usermanagement() {
         <MenuItem onClick={handleDeposit}>Deposit</MenuItem>
         <MenuItem onClick={handleWithdraw}>Withdraw</MenuItem>
         <MenuItem onClick={handleResetPassword}>Reset Password</MenuItem>
-        <MenuItem onClick={handleStatement}>Statement</MenuItem>
+        <MenuItem onClick={handleStatement}>View Statement</MenuItem>
+        <MenuItem onClick={handleLedger}>View Ledger</MenuItem>
         <MenuItem onClick={handleEditProfile}>Edit Profile</MenuItem>
       </Menu>
     </Box>
